@@ -14,6 +14,14 @@ import { useQueueStore } from './useQueueStore';
 const STORAGE_KEY_BOOKINGS = 'bookings';
 const STORAGE_KEY_SELECTED_PACKAGES = 'selectedPackages';
 
+export interface BookingModifyRequest {
+  peopleCount?: number;
+  date?: string;
+  startTime?: string;
+  duration?: number;
+  packageIds?: string[];
+}
+
 interface BookingState {
   bookings: Booking[];
   selectedPackages: SelectedPackage[];
@@ -28,6 +36,7 @@ interface BookingState {
   calculatePackageTotal: () => number;
   createBooking: (request: BookingCreateRequest) => Promise<{ success: boolean; booking?: Booking; error?: string }>;
   extendBooking: (bookingId: string, extendHours: number) => Promise<boolean>;
+  modifyBooking: (bookingId: string, request: BookingModifyRequest) => Promise<{ success: boolean; booking?: Booking; error?: string }>;
   cancelBooking: (bookingId: string) => boolean;
   checkInBooking: (bookingId: string) => boolean;
   checkOutBooking: (bookingId: string) => boolean;
@@ -171,12 +180,16 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         counterId: counterAssignment?.counterId
       };
 
-      useRoomStore.getState().addBookingToSchedule(room.id, {
+      const scheduleOk = useRoomStore.getState().addBookingToSchedule(room.id, {
         bookingId: booking.id,
+        date: request.date,
         startTime: request.startTime,
         endTime,
         status: 'reserved'
       });
+      if (!scheduleOk) {
+        return { success: false, error: '包厢排期冲突，请更换时间' };
+      }
 
       get().addBooking(booking);
 
@@ -219,16 +232,18 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
 
     try {
-      const { rooms, schedules } = useRoomStore.getState();
-      const room = rooms.find(r => r.id === booking.roomId);
+      const roomStore = useRoomStore.getState();
+      const room = roomStore.getRoomById(booking.roomId);
       if (!room) return false;
 
       const newEndTime = addHours(booking.endTime, extendHours);
-      const roomBookings = schedules[room.id] || [];
-      const hasConflict = roomBookings.some(b =>
-        b.bookingId !== bookingId &&
-        b.startTime < newEndTime &&
-        booking.endTime < b.endTime
+
+      const hasConflict = roomStore.hasConflict(
+        booking.roomId,
+        booking.date,
+        booking.endTime,
+        newEndTime,
+        bookingId
       );
 
       if (hasConflict) {
@@ -238,12 +253,17 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
       const extendAmount = room.hourlyRate * extendHours;
 
-      useRoomStore.getState().addBookingToSchedule(room.id, {
+      const scheduleOk = roomStore.addBookingToSchedule(booking.roomId, {
         bookingId,
+        date: booking.date,
         startTime: booking.endTime,
         endTime: newEndTime,
-        status: 'reserved'
+        status: booking.status === 'checked_in' ? 'occupied' : 'reserved'
       });
+      if (!scheduleOk) {
+        console.error('[BookingStore] 续钟更新排期失败');
+        return false;
+      }
 
       get().updateBooking(bookingId, {
         endTime: newEndTime,
@@ -258,6 +278,108 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     } catch (error) {
       console.error('[BookingStore] 续钟失败', error);
       return false;
+    }
+  },
+
+  modifyBooking: async (bookingId, request) => {
+    console.log('[BookingStore] 修改预订', { bookingId, request });
+
+    const booking = get().getBookingById(bookingId);
+    if (!booking) {
+      return { success: false, error: '预订不存在' };
+    }
+
+    if (booking.status === 'completed' || booking.status === 'checked_in') {
+      return { success: false, error: '当前状态不支持修改' };
+    }
+
+    try {
+      const roomStore = useRoomStore.getState();
+      const newPeopleCount = request.peopleCount ?? booking.peopleCount;
+      const newDate = request.date ?? booking.date;
+      const newStartTime = request.startTime ?? booking.startTime;
+      const newDuration = request.duration ?? booking.duration;
+      const newPackageIds = request.packageIds ?? booking.packageIds;
+      const newEndTime = addHours(newStartTime, newDuration);
+
+      let roomId = booking.roomId;
+      let room = roomStore.getRoomById(roomId);
+      if (!room) return { success: false, error: '包厢不存在' };
+
+      const needsRoomReallocation =
+        request.peopleCount !== undefined ||
+        request.date !== undefined ||
+        request.startTime !== undefined ||
+        request.duration !== undefined;
+
+      if (needsRoomReallocation) {
+        const { rooms, schedules } = roomStore;
+        const allocation = findBestRoom(
+          rooms,
+          schedules,
+          newPeopleCount,
+          newDate,
+          newStartTime,
+          newEndTime,
+          booking.roomType,
+          bookingId
+        );
+
+        if (!allocation.success || !allocation.room) {
+          return { success: false, error: allocation.reason || '没有可用包厢' };
+        }
+        room = allocation.room as Room;
+        roomId = room.id;
+
+        if (roomId !== booking.roomId) {
+          roomStore.removeBookingFromSchedule(booking.roomId, bookingId);
+        }
+      } else {
+        roomStore.removeBookingFromSchedule(booking.roomId, bookingId);
+      }
+
+      const scheduleOk = roomStore.addBookingToSchedule(roomId, {
+        bookingId,
+        date: newDate,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        status: booking.status === 'checked_in' ? 'occupied' : 'reserved'
+      });
+      if (!scheduleOk) {
+        return { success: false, error: '包厢排期冲突，请更换时间' };
+      }
+
+      const packageAmount = newPackageIds.reduce((total, pid) => {
+        const pkg = mockPackages.find(p => p.id === pid);
+        return total + (pkg?.discountPrice || 0);
+      }, 0);
+
+      const baseAmount = room.hourlyRate * newDuration;
+      const extendAmount = booking.extendAmount;
+      const totalAmount = baseAmount + packageAmount + extendAmount;
+
+      get().updateBooking(bookingId, {
+        roomId,
+        roomName: room.name,
+        roomNo: room.roomNo,
+        roomType: room.type,
+        peopleCount: newPeopleCount,
+        date: newDate,
+        startTime: newStartTime,
+        endTime: newEndTime,
+        duration: newDuration,
+        packageIds: newPackageIds,
+        packageAmount,
+        baseAmount,
+        totalAmount
+      });
+
+      const updated = get().getBookingById(bookingId);
+      console.log('[BookingStore] 修改成功', updated);
+      return { success: true, booking: updated };
+    } catch (error) {
+      console.error('[BookingStore] 修改预订失败', error);
+      return { success: false, error: '系统错误，请稍后重试' };
     }
   },
 

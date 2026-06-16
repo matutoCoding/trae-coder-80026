@@ -26,6 +26,8 @@ export interface QueueItem {
   bookingId?: string;
   estimatedWaitTime: number;
   createdAt: string;
+  isVip?: boolean;
+  priority?: number;
   calledAt?: string;
   servedAt?: string;
 }

@@ -9,15 +9,63 @@ import { useBookingStore } from '../../store/useBookingStore';
 import type { QueueStatus } from '../../types/queue';
 import { QUEUE_STATUS_LABEL } from '../../types/queue';
 import { ROOM_TYPE_LABEL as RoomLabels } from '../../types/room';
+import type { Counter } from '../../types/queue';
 import { formatDateTime } from '../../utils/timeUtils';
 import styles from './index.module.scss';
 
 type TabType = 'all' | 'waiting' | 'calling' | 'served';
 
+const QUEUE_UI_STYLES = `
+.transfer-modal, .priority-modal {
+  background: #1E1E3A;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  margin: 40rpx;
+  min-width: 500rpx;
+}
+.modal-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+.counter-option {
+  padding: 28rpx 24rpx;
+  border-radius: 16rpx;
+  background: rgba(123,47,253,0.1);
+  border: 2rpx solid rgba(255,255,255,0.08);
+  margin-bottom: 16rpx;
+  color: #fff;
+  font-size: 28rpx;
+}
+.counter-option-online {
+  border-color: rgba(123,47,253,0.5);
+}
+.modal-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 32rpx;
+}
+.vip-tag {
+  display: inline-block;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  color: #1E1E3A;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+  vertical-align: middle;
+}
+`;
+
 const QueuePage: React.FC = () => {
-  const { counters, queueItems, callNext, markServed, markMissed, triggerRebalance, getCountersLoad } = useQueueStore();
+  const { counters, queueItems, callNext, markServed, markMissed, triggerRebalance, getCountersLoad, transferToCounter, moveToFront } = useQueueStore();
   const { checkInBooking } = useBookingStore();
   const [activeTab, setActiveTab] = useState<TabType>('waiting');
+  const [showTransfer, setShowTransfer] = useState<string | null>(null);
+  const [showPriority, setShowPriority] = useState<string | null>(null);
 
   const overview = useMemo(() => {
     return {
@@ -34,7 +82,11 @@ const QueuePage: React.FC = () => {
     if (activeTab !== 'all') {
       items = queueItems.filter(q => q.status === activeTab);
     }
-    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return items.sort((a, b) => {
+      const prioDiff = (b.priority || 0) - (a.priority || 0);
+      if (prioDiff !== 0) return prioDiff;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   }, [queueItems, activeTab]);
 
   const getCounterLoadPercent = (counterId: string): number => {
@@ -92,6 +144,79 @@ const QueuePage: React.FC = () => {
   const handleRebalance = () => {
     triggerRebalance();
     Taro.showToast({ title: '负载均衡已执行', icon: 'success' });
+  };
+
+  const handleTransfer = (queueItemId: string, targetCounterId: string) => {
+    const ok = transferToCounter(queueItemId, targetCounterId);
+    if (ok) {
+      Taro.showToast({ title: '转窗口成功', icon: 'success' });
+    } else {
+      Taro.showToast({ title: '转窗口失败', icon: 'none' });
+    }
+    setShowTransfer(null);
+  };
+
+  const handleInsertFront = (queueItemId: string) => {
+    Taro.showModal({
+      title: '确认插队',
+      content: '将该客人插入当前窗口队首？',
+      success: (res) => {
+        if (res.confirm) {
+          const ok = moveToFront(queueItemId);
+          if (ok) {
+            Taro.showToast({ title: '已插队到队首', icon: 'success' });
+          } else {
+            Taro.showToast({ title: '操作失败', icon: 'none' });
+          }
+          setShowPriority(null);
+        } else {
+          setShowPriority(null);
+        }
+      },
+      fail: () => setShowPriority(null)
+    });
+  };
+
+  const TransferModal = () => {
+    if (!showTransfer) return null;
+    const item = queueItems.find(q => q.id === showTransfer);
+    if (!item) return null;
+    const availableCounters = counters.filter(c => c.status !== 'offline' && c.id !== item.counterId);
+    return (
+      <View style={
+        {
+          position: 'fixed', left: 0, right: 0, top: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }
+      }
+        onClick={() => setShowTransfer(null)}
+      >
+        <View className="transfer-modal" onClick={e => e.stopPropagation()}>
+          <View className="modal-title">
+            转窗口：{item.customerName}（{item.queueNo}）
+          </View>
+          <style>{QUEUE_UI_STYLES}</style>
+          <View>
+            {availableCounters.length === 0 && (
+              <View style={{ color: '#6E6E91', textAlign: 'center', padding: '32rpx 0' }}>暂无可用窗口</View>
+            )}
+            {availableCounters.map(c => (
+              <View
+                key={c.id}
+                className="counter-option counter-option-online"
+                onClick={() => handleTransfer(item.id, c.id)}
+              >
+                {c.name} ｜等待 {c.waitingQueueCount}｜服务中 {c.currentServingCount}
+              </View>
+            ))}
+          </View>
+          <View className="modal-actions">
+            <GradientButton size="small" ghost onClick={() => setShowTransfer(null)}>取消</GradientButton>
+          </View>
+        </View>
+      </View>
+    );
   };
 
   const getStatusClass = (status: QueueStatus) => ({
@@ -191,9 +316,12 @@ const QueuePage: React.FC = () => {
           ) : (
             filteredQueue.map(item => (
               <View key={item.id} className={styles.queueItem}>
+                <style>{QUEUE_UI_STYLES}</style>
                 <View className={styles.queueInfo}>
                   <View className={classnames(styles.queueNo, getQueueNoClass(item.status))}>
                     {item.queueNo}
+                    {item.isVip && <Text className="vip-tag">VIP</Text>}
+                    {(item.priority || 0) > 100 && !item.isVip && <Text className="vip-tag">优</Text>}
                   </View>
                   <View className={styles.queueDetails}>
                     <View className={styles.queueDetailsName}>
@@ -209,6 +337,17 @@ const QueuePage: React.FC = () => {
                   <View className={classnames(styles.statusBadge, getStatusClass(item.status))}>
                     {QUEUE_STATUS_LABEL[item.status]}
                   </View>
+
+                  {item.status === 'waiting' && (
+                    <>
+                      <GradientButton size="small" onClick={() => { setShowPriority(item.id); handleInsertFront(item.id); }}>
+                        插队
+                      </GradientButton>
+                      <GradientButton size="small" ghost onClick={() => setShowTransfer(item.id)}>
+                        转窗口
+                      </GradientButton>
+                    </>
+                  )}
 
                   {item.status === 'calling' && (
                     <>
@@ -226,6 +365,8 @@ const QueuePage: React.FC = () => {
           )}
         </View>
       </View>
+
+      <TransferModal />
     </ScrollView>
   );
 };

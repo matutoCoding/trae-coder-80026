@@ -1,4 +1,8 @@
 import type { Room, RoomBookingSlot } from '../types/room';
+import { getToday, addDays } from '../utils/timeUtils';
+
+const TODAY = getToday();
+const TOMORROW = addDays(1);
 
 export const mockRooms: Room[] = [
   {
@@ -101,21 +105,21 @@ export const mockRooms: Room[] = [
 
 export const mockRoomSchedules: Record<string, RoomBookingSlot[]> = {
   'room-001': [
-    { bookingId: 'bk-001', startTime: '18:00', endTime: '20:00', status: 'reserved' }
+    { bookingId: 'bk-001', date: TODAY, startTime: '18:00', endTime: '20:00', status: 'reserved' }
   ],
   'room-002': [
-    { bookingId: 'bk-002', startTime: '14:00', endTime: '22:00', status: 'occupied' }
+    { bookingId: 'bk-002', date: TODAY, startTime: '14:00', endTime: '22:00', status: 'occupied' }
   ],
   'room-003': [
-    { bookingId: 'bk-003', startTime: '20:00', endTime: '23:00', status: 'reserved' }
+    { bookingId: 'bk-003', date: TODAY, startTime: '20:00', endTime: '23:00', status: 'reserved' }
   ],
   'room-004': [
-    { bookingId: 'bk-004', startTime: '19:00', endTime: '22:00', status: 'reserved' }
+    { bookingId: 'bk-004', date: TODAY, startTime: '19:00', endTime: '22:00', status: 'reserved' }
   ],
   'room-005': [],
   'room-006': [
-    { bookingId: 'bk-005', startTime: '15:00', endTime: '18:00', status: 'reserved' },
-    { bookingId: 'bk-006', startTime: '21:00', endTime: '24:00', status: 'reserved' }
+    { bookingId: 'bk-005', date: TODAY, startTime: '15:00', endTime: '18:00', status: 'reserved' },
+    { bookingId: 'bk-006', date: TODAY, startTime: '22:00', endTime: '02:00', status: 'reserved' }
   ],
   'room-007': [],
   'room-008': []

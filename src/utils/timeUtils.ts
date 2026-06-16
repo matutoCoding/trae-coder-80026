@@ -16,6 +16,13 @@ export const getToday = (): string => {
   return dayjs().format('YYYY-MM-DD');
 };
 
+export const addDays = (date: string | number, days?: number): string => {
+  if (typeof date === 'number') {
+    return dayjs().add(date, 'day').format('YYYY-MM-DD');
+  }
+  return dayjs(date).add(days || 0, 'day').format('YYYY-MM-DD');
+};
+
 export const getTimeSlots = (startHour: number = 12, endHour: number = 24, stepMinutes: number = 60): string[] => {
   const slots: string[] = [];
   for (let h = startHour; h < endHour; h++) {
@@ -65,6 +72,37 @@ export const isTimeOverlap = (
   const { sMin: s1, eMin: e1 } = toMinutesNormalized(start1, end1);
   const { sMin: s2, eMin: e2 } = toMinutesNormalized(start2, end2);
   return s1 < e2 && s2 < e1;
+};
+
+export interface SplitTimeRange {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export const splitOvernightRange = (
+  startDate: string,
+  startTime: string,
+  endTime: string
+): SplitTimeRange[] => {
+  if (!isOvernight(startTime, endTime)) {
+    return [{ date: startDate, startTime, endTime }];
+  }
+  return [
+    { date: startDate, startTime, endTime: '24:00' },
+    { date: addDays(startDate, 1), startTime: '00:00', endTime }
+  ];
+};
+
+export interface SlotWithDate {
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+export const isSlotOverlap = (a: SlotWithDate, b: SlotWithDate): boolean => {
+  if (a.date !== b.date) return false;
+  return isTimeOverlap(a.startTime, a.endTime, b.startTime, b.endTime);
 };
 
 export const generateOrderNo = (): string => {

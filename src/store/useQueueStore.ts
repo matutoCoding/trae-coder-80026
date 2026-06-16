@@ -19,6 +19,7 @@ interface QueueState {
     peopleCount: number;
     customerName: string;
     customerPhone: string;
+    isVip?: boolean;
   }) => QueueItem | null;
   callNext: (counterId: string) => QueueItem | null;
   updateQueueStatus: (queueItemId: string, status: QueueStatus) => void;
@@ -26,6 +27,8 @@ interface QueueState {
   markServed: (queueItemId: string, bookingId: string) => void;
   markMissed: (queueItemId: string) => void;
   cancelQueue: (queueItemId: string) => void;
+  transferToCounter: (queueItemId: string, targetCounterId: string) => boolean;
+  moveToFront: (queueItemId: string) => boolean;
   updateCounterStatus: (counterId: string, status: Counter['status']) => void;
   getCountersLoad: () => ReturnType<typeof getAllCountersLoad>;
   triggerRebalance: () => void;
@@ -70,7 +73,9 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       status: 'waiting',
       counterId: assignment.counterId,
       estimatedWaitTime: 15,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      isVip: params.isVip || false,
+      priority: params.isVip ? 100 : 0
     };
 
     set((state) => {
@@ -98,7 +103,11 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     const { queueItems } = get();
     const waitingItems = queueItems
       .filter(q => q.status === 'waiting' && q.counterId === counterId)
-      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      .sort((a, b) => {
+        const prioDiff = (b.priority || 0) - (a.priority || 0);
+        if (prioDiff !== 0) return prioDiff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
 
     if (waitingItems.length === 0) {
       console.log('[QueueStore] 当前窗口无等待客人');
@@ -274,6 +283,70 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       });
       console.log(`[QueueStore] 已重新分配 ${reassignment.size} 个排队项，窗口统计已更新`);
     }
+  },
+
+  transferToCounter: (queueItemId, targetCounterId) => {
+    console.log('[QueueStore] 转窗口', { queueItemId, targetCounterId });
+    const item = get().queueItems.find(q => q.id === queueItemId);
+    if (!item) {
+      console.error('[QueueStore] 排队项不存在', queueItemId);
+      return false;
+    }
+    if (item.status !== 'waiting') {
+      console.error('[QueueStore] 仅等待中状态可转窗口', item.status);
+      return false;
+    }
+    const target = get().counters.find(c => c.id === targetCounterId);
+    if (!target || target.status === 'offline') {
+      console.error('[QueueStore] 目标窗口不可用', targetCounterId);
+      return false;
+    }
+    const oldCounterId = item.counterId;
+
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
+        q.id === queueItemId ? { ...q, counterId: targetCounterId } : q
+      );
+      const newCounters = state.counters.map(c => {
+        let waitingCount = c.waitingQueueCount;
+        if (c.id === oldCounterId) waitingCount = Math.max(0, waitingCount - 1);
+        if (c.id === targetCounterId) waitingCount = waitingCount + 1;
+        return { ...c, waitingQueueCount: waitingCount };
+      });
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return { queueItems: newQueueItems, counters: newCounters };
+    });
+    console.log('[QueueStore] 转窗口成功', { from: oldCounterId, to: targetCounterId });
+    return true;
+  },
+
+  moveToFront: (queueItemId) => {
+    console.log('[QueueStore] 插队到队首', queueItemId);
+    const item = get().queueItems.find(q => q.id === queueItemId);
+    if (!item) {
+      console.error('[QueueStore] 排队项不存在', queueItemId);
+      return false;
+    }
+    if (item.status !== 'waiting') {
+      console.error('[QueueStore] 仅等待中状态可插队', item.status);
+      return false;
+    }
+
+    set((state) => {
+      const sameCounterWaiting = state.queueItems
+        .filter(q => q.counterId === item.counterId && q.status === 'waiting')
+        .sort((a, b) => (b.priority || 0) - (a.priority || 0) || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      const maxPrio = sameCounterWaiting.length > 0 ? (sameCounterWaiting[0].priority || 0) : 0;
+
+      const newQueueItems = state.queueItems.map(q =>
+        q.id === queueItemId ? { ...q, priority: maxPrio + 1000, isVip: true } : q
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      return { queueItems: newQueueItems };
+    });
+    console.log('[QueueStore] 插队成功');
+    return true;
   },
 
   resetToMock: () => {

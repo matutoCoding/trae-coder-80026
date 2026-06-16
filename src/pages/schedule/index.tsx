@@ -5,17 +5,105 @@ import classnames from 'classnames';
 import { useRoomStore } from '../../store/useRoomStore';
 import type { RoomType, RoomStatus } from '../../types/room';
 import { ROOM_TYPE_LABEL, ROOM_STATUS_LABEL } from '../../types/room';
-import { getTimeSlots } from '../../utils/timeUtils';
+import { getTimeSlots, getToday, addDays } from '../../utils/timeUtils';
 import styles from './index.module.scss';
 
 const ALL_TYPES: (RoomType | 'all')[] = ['all', 'small', 'medium', 'large', 'vip', 'luxury'];
-const TIME_SLOTS = getTimeSlots(12, 25, 2);
+const TIME_SLOTS = getTimeSlots(12, 26, 2);
 const START_HOUR = 12;
-const END_HOUR = 24;
+const END_HOUR = 26;
+
+type DateViewMode = 'today' | 'tomorrow' | 'week';
+
+const SCHEDULE_STYLES = `
+.date-tabs {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 32rpx;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 2rpx solid rgba(255,255,255,0.06);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.date-tab {
+  padding: 16rpx 32rpx;
+  border-radius: 40rpx;
+  color: #6E6E91;
+  font-size: 26rpx;
+  background: rgba(123,47,253,0.08);
+  border: 2rpx solid transparent;
+  flex-shrink: 0;
+}
+.date-tab-active {
+  color: #fff;
+  background: linear-gradient(135deg, #7B2FFD 0%, #FF3D8A 100%);
+  border-color: #FFD700;
+  font-weight: 600;
+}
+.week-tabs {
+  margin-top: 16rpx;
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+  padding: 8rpx 0;
+  white-space: nowrap;
+}
+.week-tab {
+  padding: 12rpx 24rpx;
+  border-radius: 24rpx;
+  background: rgba(255,255,255,0.04);
+  color: #6E6E91;
+  font-size: 24rpx;
+  flex-shrink: 0;
+}
+.week-tab-active {
+  background: rgba(123,47,253,0.25);
+  color: #fff;
+  border: 2rpx solid rgba(123,47,253,0.6);
+}
+.block-overnight {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255,61,138,0.25),
+    rgba(255,61,138,0.25) 10rpx,
+    rgba(255,61,138,0.08) 10rpx,
+    rgba(255,61,138,0.08) 20rpx
+  ) !important;
+  border: 2rpx dashed #FFD700 !important;
+  color: #FFD700 !important;
+}
+.block-label {
+  font-size: 20rpx;
+  line-height: 1.3;
+}
+`;
 
 const SchedulePage: React.FC = () => {
   const { rooms, schedules } = useRoomStore();
   const [selectedType, setSelectedType] = useState<RoomType | 'all'>('all');
+  const [dateMode, setDateMode] = useState<DateViewMode>('today');
+  const [weekIndex, setWeekIndex] = useState(0);
+
+  const TODAY = getToday();
+  const TOMORROW = addDays(TODAY, 1);
+  const weekDates = useMemo(() => {
+    const arr: string[] = [];
+    for (let i = 0; i < 7; i++) arr.push(addDays(TODAY, i));
+    return arr;
+  }, [TODAY]);
+
+  const activeDate = useMemo(() => {
+    if (dateMode === 'today') return TODAY;
+    if (dateMode === 'tomorrow') return TOMORROW;
+    return weekDates[weekIndex];
+  }, [dateMode, weekIndex, TODAY, TOMORROW, weekDates]);
+
+  const displayDayLabel = (d: string): string => {
+    if (d === TODAY) return '今天';
+    if (d === TOMORROW) return '明天';
+    const diff = Math.round((new Date(d).getTime() - new Date(TODAY).getTime()) / 86400000);
+    return `${diff}天后`;
+  };
 
   const stats = useMemo(() => {
     return {
@@ -35,7 +123,7 @@ const SchedulePage: React.FC = () => {
     const [h, m] = time.split(':').map(Number);
     const totalMinutes = (h - START_HOUR) * 60 + m;
     const totalRange = (END_HOUR - START_HOUR) * 60;
-    return (totalMinutes / totalRange) * 100;
+    return Math.max(0, Math.min(100, (totalMinutes / totalRange) * 100));
   };
 
   const getStatusClass = (status: RoomStatus) => ({
@@ -56,14 +144,41 @@ const SchedulePage: React.FC = () => {
     Taro.navigateTo({ url: `/pages/room-detail/index?id=${roomId}` });
   };
 
-  const displayTimeLabels = ['12:00', '15:00', '18:00', '21:00', '24:00'];
+  const displayTimeLabels = ['12:00', '15:00', '18:00', '21:00', '24:00', '02:00'];
 
   return (
     <ScrollView className={styles.page} scrollY>
+      <style>{SCHEDULE_STYLES}</style>
       <View className={styles.header}>
         <View className={styles.headerTitle}>📅 包厢排期</View>
         <View className={styles.headerSubtitle}>实时查看所有包厢使用状态</View>
       </View>
+
+      <View className="date-tabs">
+        {(['today', 'tomorrow', 'week'] as DateViewMode[]).map(mode => (
+          <View
+            key={mode}
+            className={classnames('date-tab', { 'date-tab-active': dateMode === mode })}
+            onClick={() => { setDateMode(mode); if (mode === 'today') setWeekIndex(0); if (mode === 'tomorrow') setWeekIndex(1); }}
+          >
+            {mode === 'today' ? '今天' : mode === 'tomorrow' ? '明天' : '最近7天'}
+          </View>
+        ))}
+      </View>
+
+      {dateMode === 'week' && (
+        <View className="week-tabs">
+          {weekDates.map((d, idx) => (
+            <View
+              key={d}
+              className={classnames('week-tab', { 'week-tab-active': weekIndex === idx })}
+              onClick={() => setWeekIndex(idx)}
+            >
+              {displayDayLabel(d)} {d.slice(5)}
+            </View>
+          ))}
+        </View>
+      )}
 
       <View className={styles.statsRow}>
         <View className={styles.statCard}>
@@ -92,6 +207,11 @@ const SchedulePage: React.FC = () => {
         </View>
       </View>
 
+      <View style={{ padding: '0 32rpx', color: '#6E6E91', fontSize: 24, marginTop: 16 }}>
+        查看日期：<Text style={{ color: '#FFD700' }}>{activeDate}</Text>
+        （{displayDayLabel(activeDate)}）
+      </View>
+
       <ScrollView className={styles.filterBar} scrollX>
         {ALL_TYPES.map(type => (
           <View
@@ -107,7 +227,9 @@ const SchedulePage: React.FC = () => {
       </ScrollView>
 
       {filteredRooms.map(room => {
-        const roomBookings = schedules[room.id] || [];
+        const roomBookings = (schedules[room.id] || []).filter(b =>
+          !b.date || b.date === activeDate
+        );
         return (
           <View
             key={room.id}
@@ -136,18 +258,28 @@ const SchedulePage: React.FC = () => {
               </View>
               <View className={styles.trackContainer}>
                 {roomBookings.map((booking, index) => {
-                  const left = timeToPercent(booking.startTime);
-                  const right = 100 - timeToPercent(booking.endTime);
+                  const displayStart = booking.startTime === '00:00' ? '24:00' : booking.startTime;
+                  const displayEnd = booking.endTime === '00:00' ? '24:00' : booking.endTime;
+                  const left = timeToPercent(displayStart);
+                  const right = 100 - timeToPercent(displayEnd);
+                  const isOvernightSegment = (booking.date && booking.date !== TODAY) || booking.startTime < '12:00' || booking.endTime <= booking.startTime;
                   const blockClass = booking.status === 'occupied'
                     ? styles.blockOccupied
                     : styles.blockReserved;
                   return (
                     <View
-                      key={index}
-                      className={classnames(styles.bookingBlock, blockClass)}
+                      key={`${booking.bookingId}-${index}`}
+                      className={classnames(styles.bookingBlock, blockClass, { 'block-overnight': isOvernightSegment })}
                       style={{ left: `${left}%`, right: `${right}%` }}
                     >
-                      {booking.startTime}-{booking.endTime}
+                      <View className="block-label">
+                        {booking.startTime}-{booking.endTime}
+                      </View>
+                      {isOvernightSegment && (
+                        <View className="block-label" style={{ opacity: 0.9 }}>
+                          {booking.date?.slice(5)}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
@@ -174,6 +306,14 @@ const SchedulePage: React.FC = () => {
           <View className={styles.legendItem}>
             <View className={classnames(styles.legendDot, styles.dotMaintenance)} />
             <Text>维护中</Text>
+          </View>
+          <View className={styles.legendItem}>
+            <View className="styles.legendDot" style={{
+              width: 20, height: 20, borderRadius: 4,
+              background: 'repeating-linear-gradient(135deg, rgba(255,61,138,0.4), rgba(255,61,138,0.4) 3px, rgba(255,61,138,0.15) 3px, rgba(255,61,138,0.15) 6px)',
+              border: '2rpx dashed #FFD700'
+            }} />
+            <Text>跨凌晨段</Text>
           </View>
         </View>
       </View>

@@ -30,6 +30,7 @@ export interface RoomSchedule {
 
 export interface RoomBookingSlot {
   bookingId: string;
+  date: string;
   startTime: string;
   endTime: string;
   status: RoomStatus;

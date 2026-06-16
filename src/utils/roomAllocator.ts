@@ -1,5 +1,5 @@
 import type { Room, RoomType, RoomBookingSlot } from '../types/room';
-import { isTimeOverlap, calculateMinutesDiff } from './timeUtils';
+import { isTimeOverlap, calculateMinutesDiff, isSlotOverlap, splitOvernightRange } from './timeUtils';
 
 interface AllocationCandidate {
   room: Room;
@@ -34,19 +34,23 @@ const getRoomTypePriority = (type: RoomType): number => {
 
 const calculateFragmentRisk = (
   existingBookings: RoomBookingSlot[],
+  date: string,
   startTime: string,
   endTime: string
 ): number => {
   if (existingBookings.length === 0) return 0;
 
   let risk = 0;
+  const newRanges = splitOvernightRange(date, startTime, endTime);
 
   for (const booking of existingBookings) {
-    const gapBefore = calculateMinutesDiff(booking.endTime, startTime);
-    const gapAfter = calculateMinutesDiff(endTime, booking.startTime);
-
-    if (gapBefore > 0 && gapBefore < 60) risk += (60 - gapBefore);
-    if (gapAfter > 0 && gapAfter < 60) risk += (60 - gapAfter);
+    for (const range of newRanges) {
+      if (booking.date !== range.date) continue;
+      const gapBefore = calculateMinutesDiff(booking.endTime, range.startTime);
+      const gapAfter = calculateMinutesDiff(range.endTime, booking.startTime);
+      if (gapBefore > 0 && gapBefore < 60) risk += (60 - gapBefore);
+      if (gapAfter > 0 && gapAfter < 60) risk += (60 - gapAfter);
+    }
   }
 
   return risk;
@@ -85,24 +89,29 @@ export const findBestRoom = (
   date: string,
   startTime: string,
   endTime: string,
-  preferredType?: RoomType
+  preferredType?: RoomType,
+  excludeBookingId?: string
 ): AllocationResult => {
   console.log('[RoomAllocator] 开始分配包厢', {
     peopleCount,
     date,
     startTime,
     endTime,
-    preferredType
+    preferredType,
+    excludeBookingId
   });
+
+  const newRanges = splitOvernightRange(date, startTime, endTime);
 
   const availableRooms = rooms.filter(room => {
     if (room.status === 'maintenance') return false;
     if (room.capacity < peopleCount) return false;
 
     const roomBookings = schedules[room.id] || [];
-    const hasConflict = roomBookings.some(booking =>
-      isTimeOverlap(startTime, endTime, booking.startTime, booking.endTime)
-    );
+    const hasConflict = roomBookings.some(booking => {
+      if (excludeBookingId && booking.bookingId === excludeBookingId) return false;
+      return newRanges.some(range => isSlotOverlap(range, booking));
+    });
 
     return !hasConflict;
   });
@@ -118,7 +127,7 @@ export const findBestRoom = (
   const candidates: AllocationCandidate[] = availableRooms.map(room => {
     const roomBookings = schedules[room.id] || [];
     const fitScore = calculateFitScore(room, peopleCount, preferredType);
-    const fragmentRisk = calculateFragmentRisk(roomBookings, startTime, endTime);
+    const fragmentRisk = calculateFragmentRisk(roomBookings, date, startTime, endTime);
     const finalScore = fitScore - fragmentRisk * 0.5 + (room.status === 'available' ? 10 : 0);
 
     return {
