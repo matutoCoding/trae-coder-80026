@@ -1,13 +1,80 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView } from '@tarojs/components';
 import Taro, { useRouter } from '@tarojs/taro';
+import classnames from 'classnames';
 import GradientButton from '../../components/GradientButton';
 import { useBookingStore } from '../../store/useBookingStore';
 import { usePackageStore } from '../../store/usePackageStore';
 import { useQueueStore } from '../../store/useQueueStore';
+import { useRoomStore } from '../../store/useRoomStore';
 import { BOOKING_STATUS_LABEL } from '../../types/booking';
 import { ROOM_TYPE_LABEL } from '../../types/room';
 import styles from './index.module.scss';
+
+const ORDER_DETAIL_STYLES = `
+.extend-modal {
+  background: #1E1E3A;
+  border-radius: 24rpx;
+  padding: 48rpx;
+  margin: 48rpx;
+}
+.extend-modal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+.hour-options {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+.hour-option {
+  flex: 1;
+  padding: 32rpx 16rpx;
+  background: rgba(123, 47, 253, 0.1);
+  border: 2rpx solid rgba(255,255,255,0.1);
+  border-radius: 16rpx;
+  text-align: center;
+  transition: all 0.2s;
+}
+.hour-option-active {
+  background: linear-gradient(135deg, rgba(123,47,253,0.3) 0%, rgba(255,61,138,0.3) 100%);
+  border-color: #7B2FFD;
+}
+.hour-option-hours {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 4rpx;
+}
+.hour-option-price {
+  font-size: 24rpx;
+  color: #FFD700;
+}
+.extend-total {
+  text-align: center;
+  padding: 32rpx;
+  background: rgba(123, 47, 253, 0.1);
+  border-radius: 16rpx;
+  margin-bottom: 32rpx;
+}
+.extend-total-label {
+  font-size: 24rpx;
+  color: #8E8EB2;
+  margin-bottom: 8rpx;
+}
+.extend-total-value {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #FFD700;
+}
+.extend-actions {
+  display: flex;
+  gap: 24rpx;
+}
+`;
 
 const OrderDetailPage: React.FC = () => {
   const router = useRouter();
@@ -15,11 +82,24 @@ const OrderDetailPage: React.FC = () => {
   const { getBookingById, extendBooking, cancelBooking, checkInBooking, checkOutBooking } = useBookingStore();
   const { getPackageById } = usePackageStore();
   const { counters } = useQueueStore();
+  const { getRoomById } = useRoomStore();
 
   const [showExtend, setShowExtend] = useState(false);
   const [extendHours, setExtendHours] = useState(1);
 
   const booking = useMemo(() => getBookingById(bookingId), [bookingId, getBookingById]);
+
+  const extendPrice = useMemo(() => {
+    if (!booking) return 0;
+    const room = getRoomById(booking.roomId);
+    return (room?.hourlyRate || 0) * extendHours;
+  }, [booking, extendHours, getRoomById]);
+
+  const unitPrice = useMemo(() => {
+    if (!booking) return 0;
+    const room = getRoomById(booking.roomId);
+    return room?.hourlyRate || 0;
+  }, [booking, getRoomById]);
 
   if (!booking) {
     return (
@@ -46,7 +126,7 @@ const OrderDetailPage: React.FC = () => {
       Taro.showToast({ title: '续钟成功', icon: 'success' });
       setShowExtend(false);
     } else {
-      Taro.showToast({ title: '续钟失败', icon: 'none' });
+      Taro.showToast({ title: '续钟失败，时段可能冲突', icon: 'none' });
     }
   };
 
@@ -211,6 +291,64 @@ const OrderDetailPage: React.FC = () => {
             </GradientButton>
           )}
         </View>
+      )}
+
+      {showExtend && (
+        <>
+          <style>{ORDER_DETAIL_STYLES}</style>
+          <View
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}
+            onClick={() => setShowExtend(false)}
+          >
+            <View className="extend-modal" onClick={(e) => e.stopPropagation()}>
+              <View className="extend-modal-title">续钟时间</View>
+
+              <View className="hour-options">
+                {[1, 2, 3, 4].map(h => (
+                  <View
+                    key={h}
+                    className={classnames('hour-option', {
+                      'hour-option-active': extendHours === h
+                    })}
+                    onClick={() => setExtendHours(h)}
+                  >
+                    <View className="hour-option-hours">{h}h</View>
+                    <View className="hour-option-price">¥{unitPrice * h}</View>
+                  </View>
+                ))}
+              </View>
+
+              <View className="extend-total">
+                <View className="extend-total-label">续钟费用</View>
+                <View className="extend-total-value">¥{extendPrice}</View>
+              </View>
+
+              <View className="extend-actions">
+                <GradientButton
+                  block
+                  ghost
+                  onClick={() => setShowExtend(false)}
+                >
+                  取消
+                </GradientButton>
+                <GradientButton block onClick={handleExtend}>
+                  确认续钟
+                </GradientButton>
+              </View>
+            </View>
+          </View>
+        </>
       )}
     </ScrollView>
   );

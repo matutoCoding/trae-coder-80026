@@ -34,24 +34,36 @@ export const addHours = (time: string, hours: number): string => {
   return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
 };
 
+export const isOvernight = (startTime: string, endTime: string): boolean => {
+  const [sh] = startTime.split(':').map(Number);
+  const [eh] = endTime.split(':').map(Number);
+  return eh < sh || (eh === sh && endTime <= startTime);
+};
+
+const toMinutesNormalized = (startTime: string, endTime: string): { sMin: number; eMin: number } => {
+  const toMin = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  let sMin = toMin(startTime);
+  let eMin = toMin(endTime);
+  if (isOvernight(startTime, endTime)) {
+    eMin += 24 * 60;
+  }
+  return { sMin, eMin };
+};
+
 export const calculateMinutesDiff = (startTime: string, endTime: string): number => {
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
-  return (eh * 60 + em) - (sh * 60 + sm);
+  const { sMin, eMin } = toMinutesNormalized(startTime, endTime);
+  return eMin - sMin;
 };
 
 export const isTimeOverlap = (
   start1: string, end1: string,
   start2: string, end2: string
 ): boolean => {
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
-  const s1 = toMin(start1);
-  const e1 = toMin(end1);
-  const s2 = toMin(start2);
-  const e2 = toMin(end2);
+  const { sMin: s1, eMin: e1 } = toMinutesNormalized(start1, end1);
+  const { sMin: s2, eMin: e2 } = toMinutesNormalized(start2, end2);
   return s1 < e2 && s2 < e1;
 };
 

@@ -1,5 +1,5 @@
 import type { Room, RoomType, RoomBookingSlot } from '../types/room';
-import { isTimeOverlap } from './timeUtils';
+import { isTimeOverlap, calculateMinutesDiff } from './timeUtils';
 
 interface AllocationCandidate {
   room: Room;
@@ -40,20 +40,10 @@ const calculateFragmentRisk = (
   if (existingBookings.length === 0) return 0;
 
   let risk = 0;
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
-
-  const sMin = toMin(startTime);
-  const eMin = toMin(endTime);
 
   for (const booking of existingBookings) {
-    const bsMin = toMin(booking.startTime);
-    const beMin = toMin(booking.endTime);
-
-    const gapBefore = sMin - beMin;
-    const gapAfter = bsMin - eMin;
+    const gapBefore = calculateMinutesDiff(booking.endTime, startTime);
+    const gapAfter = calculateMinutesDiff(endTime, booking.startTime);
 
     if (gapBefore > 0 && gapBefore < 60) risk += (60 - gapBefore);
     if (gapAfter > 0 && gapAfter < 60) risk += (60 - gapAfter);

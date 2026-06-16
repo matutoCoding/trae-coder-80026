@@ -7,8 +7,12 @@ import { mockPackages } from '../data/packages';
 import { findBestRoom } from '../utils/roomAllocator';
 import { findLeastLoadedCounter } from '../utils/loadBalancer';
 import { generateOrderNo, addHours, getToday, generateQueueNo } from '../utils/timeUtils';
+import { saveToStorage, loadFromStorage } from '../utils/persist';
 import { useRoomStore } from './useRoomStore';
 import { useQueueStore } from './useQueueStore';
+
+const STORAGE_KEY_BOOKINGS = 'bookings';
+const STORAGE_KEY_SELECTED_PACKAGES = 'selectedPackages';
 
 interface BookingState {
   bookings: Booking[];
@@ -27,58 +31,74 @@ interface BookingState {
   cancelBooking: (bookingId: string) => boolean;
   checkInBooking: (bookingId: string) => boolean;
   checkOutBooking: (bookingId: string) => boolean;
+  resetToMock: () => void;
 }
 
+const initialBookings = loadFromStorage<Booking[]>(STORAGE_KEY_BOOKINGS, mockBookings);
+const initialSelectedPackages = loadFromStorage<SelectedPackage[]>(STORAGE_KEY_SELECTED_PACKAGES, []);
+
 export const useBookingStore = create<BookingState>((set, get) => ({
-  bookings: mockBookings,
-  selectedPackages: [],
+  bookings: initialBookings,
+  selectedPackages: initialSelectedPackages,
 
-  setBookings: (bookings) => set({ bookings }),
+  setBookings: (bookings) => {
+    saveToStorage(STORAGE_KEY_BOOKINGS, bookings);
+    set({ bookings });
+  },
 
-  addBooking: (booking) => set((state) => ({
-    bookings: [booking, ...state.bookings]
-  })),
+  addBooking: (booking) => set((state) => {
+    const newBookings = [booking, ...state.bookings];
+    saveToStorage(STORAGE_KEY_BOOKINGS, newBookings);
+    return { bookings: newBookings };
+  }),
 
-  updateBooking: (bookingId, updates) => set((state) => ({
-    bookings: state.bookings.map(b =>
+  updateBooking: (bookingId, updates) => set((state) => {
+    const newBookings = state.bookings.map(b =>
       b.id === bookingId ? { ...b, ...updates } : b
-    )
-  })),
+    );
+    saveToStorage(STORAGE_KEY_BOOKINGS, newBookings);
+    return { bookings: newBookings };
+  }),
 
   getBookingById: (bookingId) => get().bookings.find(b => b.id === bookingId),
 
   addPackage: (packageId) => set((state) => {
     const existing = state.selectedPackages.find(p => p.packageId === packageId);
+    let newPackages;
     if (existing) {
-      return {
-        selectedPackages: state.selectedPackages.map(p =>
-          p.packageId === packageId ? { ...p, quantity: p.quantity + 1 } : p
-        )
-      };
+      newPackages = state.selectedPackages.map(p =>
+        p.packageId === packageId ? { ...p, quantity: p.quantity + 1 } : p
+      );
+    } else {
+      newPackages = [...state.selectedPackages, { packageId, quantity: 1 }];
     }
-    return {
-      selectedPackages: [...state.selectedPackages, { packageId, quantity: 1 }]
-    };
+    saveToStorage(STORAGE_KEY_SELECTED_PACKAGES, newPackages);
+    return { selectedPackages: newPackages };
   }),
 
-  removePackage: (packageId) => set((state) => ({
-    selectedPackages: state.selectedPackages.filter(p => p.packageId !== packageId)
-  })),
+  removePackage: (packageId) => set((state) => {
+    const newPackages = state.selectedPackages.filter(p => p.packageId !== packageId);
+    saveToStorage(STORAGE_KEY_SELECTED_PACKAGES, newPackages);
+    return { selectedPackages: newPackages };
+  }),
 
   updatePackageQuantity: (packageId, quantity) => set((state) => {
+    let newPackages;
     if (quantity <= 0) {
-      return {
-        selectedPackages: state.selectedPackages.filter(p => p.packageId !== packageId)
-      };
-    }
-    return {
-      selectedPackages: state.selectedPackages.map(p =>
+      newPackages = state.selectedPackages.filter(p => p.packageId !== packageId);
+    } else {
+      newPackages = state.selectedPackages.map(p =>
         p.packageId === packageId ? { ...p, quantity } : p
-      )
-    };
+      );
+    }
+    saveToStorage(STORAGE_KEY_SELECTED_PACKAGES, newPackages);
+    return { selectedPackages: newPackages };
   }),
 
-  clearSelectedPackages: () => set({ selectedPackages: [] }),
+  clearSelectedPackages: () => {
+    saveToStorage(STORAGE_KEY_SELECTED_PACKAGES, []);
+    set({ selectedPackages: [] });
+  },
 
   calculatePackageTotal: () => {
     const { selectedPackages } = get();
@@ -160,7 +180,23 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
       get().addBooking(booking);
 
-      console.log('[BookingStore] 预订创建成功', booking);
+      const queueItem = useQueueStore.getState().addToQueue({
+        roomType: room.type,
+        peopleCount: request.peopleCount,
+        customerName: request.customerName,
+        customerPhone: request.customerPhone
+      });
+
+      if (queueItem) {
+        useQueueStore.getState().updateBookingId(queueItem.id, booking.id);
+        get().updateBooking(booking.id, {
+          queueNo: queueItem.queueNo,
+          counterId: queueItem.counterId,
+          queueItemId: queueItem.id
+        });
+      }
+
+      console.log('[BookingStore] 预订创建成功', booking, queueItem);
       return { success: true, booking };
     } catch (error) {
       console.error('[BookingStore] 创建预订失败', error);
@@ -177,7 +213,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       return false;
     }
 
-    if (booking.status !== 'checked_in' && booking.status !== 'confirmed') {
+    if (booking.status !== 'checked_in' && booking.status !== 'confirmed' && booking.status !== 'extended') {
       console.error('[BookingStore] 当前状态不支持续钟', booking.status);
       return false;
     }
@@ -235,6 +271,22 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     }
 
     useRoomStore.getState().removeBookingFromSchedule(booking.roomId, bookingId);
+
+    if (booking.queueItemId) {
+      useQueueStore.getState().cancelQueue(booking.queueItemId);
+    } else {
+      const matchingQueue = useQueueStore.getState().queueItems.find(
+        q => q.bookingId === bookingId || (
+          q.customerPhone === booking.customerPhone &&
+          q.customerName === booking.customerName &&
+          (q.status === 'waiting' || q.status === 'calling')
+        )
+      );
+      if (matchingQueue) {
+        useQueueStore.getState().cancelQueue(matchingQueue.id);
+      }
+    }
+
     get().updateBooking(bookingId, { status: 'cancelled' });
     return true;
   },
@@ -263,5 +315,11 @@ export const useBookingStore = create<BookingState>((set, get) => ({
       checkOutTime: new Date().toISOString()
     });
     return true;
+  },
+
+  resetToMock: () => {
+    saveToStorage(STORAGE_KEY_BOOKINGS, mockBookings);
+    saveToStorage(STORAGE_KEY_SELECTED_PACKAGES, []);
+    set({ bookings: mockBookings, selectedPackages: [] });
   }
 }));

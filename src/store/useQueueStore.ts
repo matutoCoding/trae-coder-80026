@@ -4,6 +4,10 @@ import type { RoomType } from '../types/room';
 import { mockCounters, mockQueueItems } from '../data/bookings';
 import { findLeastLoadedCounter, rebalanceQueues, getAllCountersLoad } from '../utils/loadBalancer';
 import { generateQueueNo } from '../utils/timeUtils';
+import { saveToStorage, loadFromStorage } from '../utils/persist';
+
+const STORAGE_KEY_COUNTERS = 'counters';
+const STORAGE_KEY_QUEUE_ITEMS = 'queueItems';
 
 interface QueueState {
   counters: Counter[];
@@ -18,21 +22,32 @@ interface QueueState {
   }) => QueueItem | null;
   callNext: (counterId: string) => QueueItem | null;
   updateQueueStatus: (queueItemId: string, status: QueueStatus) => void;
+  updateBookingId: (queueItemId: string, bookingId: string) => void;
   markServed: (queueItemId: string, bookingId: string) => void;
   markMissed: (queueItemId: string) => void;
   cancelQueue: (queueItemId: string) => void;
   updateCounterStatus: (counterId: string, status: Counter['status']) => void;
   getCountersLoad: () => ReturnType<typeof getAllCountersLoad>;
   triggerRebalance: () => void;
+  resetToMock: () => void;
 }
 
+const initialCounters = loadFromStorage<Counter[]>(STORAGE_KEY_COUNTERS, mockCounters);
+const initialQueueItems = loadFromStorage<QueueItem[]>(STORAGE_KEY_QUEUE_ITEMS, mockQueueItems);
+
 export const useQueueStore = create<QueueState>((set, get) => ({
-  counters: mockCounters,
-  queueItems: mockQueueItems,
+  counters: initialCounters,
+  queueItems: initialQueueItems,
 
-  setCounters: (counters) => set({ counters }),
+  setCounters: (counters) => {
+    saveToStorage(STORAGE_KEY_COUNTERS, counters);
+    set({ counters });
+  },
 
-  setQueueItems: (queueItems) => set({ queueItems }),
+  setQueueItems: (queueItems) => {
+    saveToStorage(STORAGE_KEY_QUEUE_ITEMS, queueItems);
+    set({ queueItems });
+  },
 
   addToQueue: (params) => {
     console.log('[QueueStore] 加入排队', params);
@@ -58,14 +73,20 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       createdAt: new Date().toISOString()
     };
 
-    set((state) => ({
-      queueItems: [...state.queueItems, newItem],
-      counters: state.counters.map(c =>
+    set((state) => {
+      const newQueueItems = [...state.queueItems, newItem];
+      const newCounters = state.counters.map(c =>
         c.id === assignment.counterId
           ? { ...c, waitingQueueCount: c.waitingQueueCount + 1 }
           : c
-      )
-    }));
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return {
+        queueItems: newQueueItems,
+        counters: newCounters
+      };
+    });
 
     console.log('[QueueStore] 排队成功', newItem);
     return newItem;
@@ -87,28 +108,44 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     const nextItem = waitingItems[0];
     const now = new Date().toISOString();
 
-    set((state) => ({
-      queueItems: state.queueItems.map(q =>
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
         q.id === nextItem.id
           ? { ...q, status: 'calling' as QueueStatus, calledAt: now }
           : q
-      ),
-      counters: state.counters.map(c =>
+      );
+      const newCounters = state.counters.map(c =>
         c.id === counterId
           ? { ...c, currentServingCount: c.currentServingCount + 1, lastActivityTime: now }
           : c
-      )
-    }));
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return {
+        queueItems: newQueueItems,
+        counters: newCounters
+      };
+    });
 
     console.log('[QueueStore] 叫号成功', nextItem);
     return nextItem;
   },
 
-  updateQueueStatus: (queueItemId, status) => set((state) => ({
-    queueItems: state.queueItems.map(q =>
+  updateQueueStatus: (queueItemId, status) => set((state) => {
+    const newQueueItems = state.queueItems.map(q =>
       q.id === queueItemId ? { ...q, status } : q
-    )
-  })),
+    );
+    saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+    return { queueItems: newQueueItems };
+  }),
+
+  updateBookingId: (queueItemId, bookingId) => set((state) => {
+    const newQueueItems = state.queueItems.map(q =>
+      q.id === queueItemId ? { ...q, bookingId } : q
+    );
+    saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+    return { queueItems: newQueueItems };
+  }),
 
   markServed: (queueItemId, bookingId) => {
     console.log('[QueueStore] 完成服务', { queueItemId, bookingId });
@@ -116,13 +153,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     if (!item) return;
 
     const now = new Date().toISOString();
-    set((state) => ({
-      queueItems: state.queueItems.map(q =>
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
         q.id === queueItemId
           ? { ...q, status: 'served' as QueueStatus, servedAt: now, bookingId }
           : q
-      ),
-      counters: state.counters.map(c =>
+      );
+      const newCounters = state.counters.map(c =>
         c.id === item.counterId
           ? {
               ...c,
@@ -132,8 +169,14 @@ export const useQueueStore = create<QueueState>((set, get) => ({
               lastActivityTime: now
             }
           : c
-      )
-    }));
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return {
+        queueItems: newQueueItems,
+        counters: newCounters
+      };
+    });
   },
 
   markMissed: (queueItemId) => {
@@ -141,11 +184,11 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     const item = get().queueItems.find(q => q.id === queueItemId);
     if (!item) return;
 
-    set((state) => ({
-      queueItems: state.queueItems.map(q =>
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
         q.id === queueItemId ? { ...q, status: 'missed' as QueueStatus } : q
-      ),
-      counters: state.counters.map(c =>
+      );
+      const newCounters = state.counters.map(c =>
         c.id === item.counterId
           ? {
               ...c,
@@ -153,8 +196,14 @@ export const useQueueStore = create<QueueState>((set, get) => ({
               waitingQueueCount: Math.max(0, c.waitingQueueCount - 1)
             }
           : c
-      )
-    }));
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return {
+        queueItems: newQueueItems,
+        counters: newCounters
+      };
+    });
   },
 
   cancelQueue: (queueItemId) => {
@@ -162,23 +211,31 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     const item = get().queueItems.find(q => q.id === queueItemId);
     if (!item) return;
 
-    set((state) => ({
-      queueItems: state.queueItems.map(q =>
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
         q.id === queueItemId ? { ...q, status: 'cancelled' as QueueStatus } : q
-      ),
-      counters: state.counters.map(c =>
+      );
+      const newCounters = state.counters.map(c =>
         c.id === item.counterId
           ? { ...c, waitingQueueCount: Math.max(0, c.waitingQueueCount - 1) }
           : c
-      )
-    }));
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return {
+        queueItems: newQueueItems,
+        counters: newCounters
+      };
+    });
   },
 
-  updateCounterStatus: (counterId, status) => set((state) => ({
-    counters: state.counters.map(c =>
+  updateCounterStatus: (counterId, status) => set((state) => {
+    const newCounters = state.counters.map(c =>
       c.id === counterId ? { ...c, status } : c
-    )
-  })),
+    );
+    saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+    return { counters: newCounters };
+  }),
 
   getCountersLoad: () => getAllCountersLoad(get().counters, get().queueItems),
 
@@ -187,13 +244,41 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     const reassignment = rebalanceQueues(get().counters, get().queueItems);
 
     if (reassignment.size > 0) {
-      set((state) => ({
-        queueItems: state.queueItems.map(q => {
+      set((state) => {
+        const newQueueItems = state.queueItems.map(q => {
           const newCounterId = reassignment.get(q.id);
           return newCounterId ? { ...q, counterId: newCounterId } : q;
-        })
-      }));
-      console.log(`[QueueStore] 已重新分配 ${reassignment.size} 个排队项`);
+        });
+
+        const newCounters = state.counters.map(c => {
+          const waitingCount = newQueueItems.filter(
+            q => q.counterId === c.id && q.status === 'waiting'
+          ).length;
+          const servingCount = newQueueItems.filter(
+            q => q.counterId === c.id && q.status === 'calling'
+          ).length;
+          return {
+            ...c,
+            waitingQueueCount: waitingCount,
+            currentServingCount: servingCount
+          };
+        });
+
+        saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+        saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+
+        return {
+          queueItems: newQueueItems,
+          counters: newCounters
+        };
+      });
+      console.log(`[QueueStore] 已重新分配 ${reassignment.size} 个排队项，窗口统计已更新`);
     }
+  },
+
+  resetToMock: () => {
+    saveToStorage(STORAGE_KEY_COUNTERS, mockCounters);
+    saveToStorage(STORAGE_KEY_QUEUE_ITEMS, mockQueueItems);
+    set({ counters: mockCounters, queueItems: mockQueueItems });
   }
 }));

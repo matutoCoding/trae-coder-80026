@@ -29,6 +29,7 @@ export interface Booking {
   createdAt: string;
   queueNo?: string;
   counterId?: string;
+  queueItemId?: string;
 }
 
 export interface BookingCreateRequest {
