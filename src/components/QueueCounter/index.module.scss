@@ -1,0 +1,113 @@
+@use '@/styles/variables.scss' as *;
+
+.card {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  border: 2rpx solid $color-border;
+  transition: all $transition-base;
+}
+
+.cardOnline {
+  border-color: rgba($color-primary, 0.3);
+}
+
+.cardBusy {
+  border-color: rgba($color-warning, 0.3);
+}
+
+.cardOffline {
+  opacity: 0.5;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.name {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.statusBadge {
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.statusOnline {
+  background: rgba($color-success, 0.15);
+  color: $color-success;
+}
+
+.statusBusy {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusOffline {
+  background: rgba($color-text-tertiary, 0.15);
+  color: $color-text-tertiary;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.statItem {
+  text-align: center;
+  padding: $spacing-sm;
+  background: $color-bg-glass;
+  border-radius: $radius-md;
+
+  &Value {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    color: $color-primary;
+  }
+
+  &Label {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    margin-top: 4rpx;
+  }
+}
+
+.loadBar {
+  margin-bottom: $spacing-md;
+
+  &Label {
+    display: flex;
+    justify-content: space-between;
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Track {
+    height: 12rpx;
+    background: $color-bg-glass;
+    border-radius: $radius-round;
+    overflow: hidden;
+  }
+
+  &Fill {
+    height: 100%;
+    border-radius: $radius-round;
+    background: linear-gradient(90deg, $color-primary 0%, $color-accent-pink 100%);
+    transition: width $transition-base;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: $spacing-sm;
+}

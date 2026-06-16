@@ -1,0 +1,217 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding $spacing-xl;
+}
+
+.header {
+  padding: $spacing-lg 0;
+
+  &Title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Subtitle {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+}
+
+.overviewCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  text-align: center;
+  border: 2rpx solid $color-border;
+
+  &Value {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.overviewValueCalling { color: $color-warning; }
+.overviewValueServed { color: $color-success; }
+
+.sectionTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  justify-content: space-between;
+
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 6rpx;
+    height: 32rpx;
+    background: linear-gradient(180deg, $color-primary 0%, $color-accent-pink 100%);
+    border-radius: $radius-round;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rebalanceBtn {
+  font-size: $font-size-sm;
+  color: $color-accent-cyan;
+  padding: $spacing-xs $spacing-md;
+  background: rgba($color-accent-cyan, 0.1);
+  border-radius: $radius-button;
+}
+
+.countersGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $spacing-md;
+  margin-bottom: $spacing-lg;
+}
+
+.queueSection {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  border: 2rpx solid $color-border;
+  margin-bottom: $spacing-md;
+}
+
+.queueList {
+  margin-top: $spacing-md;
+}
+
+.queueItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md 0;
+  border-bottom: 2rpx solid $color-divider;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.queueInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.queueNo {
+  width: 96rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, $color-primary 0%, $color-accent-pink 100%);
+  border-radius: $radius-lg;
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: $color-text-white;
+}
+
+.queueNoCalling {
+  background: linear-gradient(135deg, $color-warning 0%, #FFB74D 100%);
+}
+
+.queueNoServed {
+  background: linear-gradient(135deg, $color-success 0%, #69F0AE 100%);
+}
+
+.queueNoMissed {
+  background: $color-bg-hover;
+  color: $color-text-tertiary;
+}
+
+.queueDetails {
+  &Name {
+    font-size: $font-size-md;
+    font-weight: $font-weight-medium;
+    color: $color-text-primary;
+    margin-bottom: 4rpx;
+  }
+
+  &Meta {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+}
+
+.queueActions {
+  display: flex;
+  gap: $spacing-sm;
+  align-items: center;
+}
+
+.statusBadge {
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.statusWaiting {
+  background: rgba($color-primary, 0.15);
+  color: $color-primary;
+}
+
+.statusCalling {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusServed {
+  background: rgba($color-success, 0.15);
+  color: $color-success;
+}
+
+.statusMissed {
+  background: rgba($color-text-tertiary, 0.15);
+  color: $color-text-tertiary;
+}
+
+.tabs {
+  display: flex;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+}
+
+.tab {
+  padding: $spacing-sm $spacing-lg;
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  background: $color-bg-glass;
+  border-radius: $radius-button;
+  border: 2rpx solid transparent;
+}
+
+.tabActive {
+  background: linear-gradient(135deg, rgba($color-primary, 0.2) 0%, rgba($color-accent-pink, 0.2) 100%);
+  border-color: $color-primary;
+  color: $color-primary;
+}

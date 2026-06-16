@@ -1,0 +1,101 @@
+@use '@/styles/variables.scss' as *;
+
+.container {
+  width: 100%;
+}
+
+.label {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+}
+
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.slot {
+  min-width: 140rpx;
+  padding: $spacing-sm $spacing-md;
+  background: $color-bg-glass;
+  border: 2rpx solid transparent;
+  border-radius: $radius-md;
+  text-align: center;
+  transition: all $transition-fast;
+
+  &Time {
+    font-size: $font-size-md;
+    font-weight: $font-weight-medium;
+    color: $color-text-primary;
+    margin-bottom: 4rpx;
+  }
+
+  &Status {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+}
+
+.slotSelected {
+  background: linear-gradient(135deg, rgba($color-primary, 0.2) 0%, rgba($color-accent-pink, 0.2) 100%);
+  border-color: $color-primary;
+
+  .slotTime {
+    color: $color-primary;
+  }
+}
+
+.slotDisabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.durationSection {
+  margin-top: $spacing-lg;
+}
+
+.durationLabel {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+}
+
+.durationOptions {
+  display: flex;
+  gap: $spacing-sm;
+}
+
+.durationOption {
+  flex: 1;
+  padding: $spacing-md;
+  background: $color-bg-glass;
+  border: 2rpx solid transparent;
+  border-radius: $radius-md;
+  text-align: center;
+  transition: all $transition-fast;
+
+  &Hours {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+  }
+
+  &Label {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    margin-top: $spacing-xs;
+  }
+}
+
+.durationOptionSelected {
+  background: linear-gradient(135deg, rgba($color-primary, 0.2) 0%, rgba($color-accent-pink, 0.2) 100%);
+  border-color: $color-primary;
+
+  .durationOptionHours {
+    color: $color-primary;
+  }
+}

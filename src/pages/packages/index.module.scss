@@ -1,0 +1,85 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding calc(180rpx + env(safe-area-inset-bottom));
+  background: $color-bg-page;
+}
+
+.header {
+  padding: $spacing-lg 0;
+
+  &Title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Subtitle {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.categoryBar {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+  overflow-x: auto;
+
+  @include scroll-x-container;
+}
+
+.categoryItem {
+  @include scroll-x-item(auto);
+  padding: $spacing-sm $spacing-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-button;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  white-space: nowrap;
+}
+
+.categoryItemActive {
+  background: linear-gradient(135deg, $color-primary 0%, $color-accent-pink 100%);
+  color: $color-text-white;
+  border-color: transparent;
+}
+
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: $spacing-md $page-padding calc($spacing-md + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  border-top: 2rpx solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.summaryInfo {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+
+  &Count {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &CountValue {
+    color: $color-primary;
+    font-weight: $font-weight-semibold;
+  }
+
+  &Price {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-price;
+  }
+}

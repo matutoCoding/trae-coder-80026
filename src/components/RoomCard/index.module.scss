@@ -1,0 +1,116 @@
+@use '@/styles/variables.scss' as *;
+
+.card {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  border: 2rpx solid $color-border;
+  transition: all $transition-base;
+
+  &:active {
+    transform: scale(0.99);
+    border-color: $color-primary;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: $spacing-md;
+}
+
+.title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-xs;
+}
+
+.subtitle {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.statusBadge {
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.statusAvailable {
+  background: rgba($color-success, 0.15);
+  color: $color-success;
+}
+
+.statusOccupied {
+  background: rgba($color-error, 0.15);
+  color: $color-error;
+}
+
+.statusReserved {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusMaintenance {
+  background: rgba($color-text-tertiary, 0.15);
+  color: $color-text-tertiary;
+}
+
+.info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-md;
+  margin-bottom: $spacing-md;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+
+  &Label {
+    color: $color-text-tertiary;
+    margin-right: $spacing-xs;
+  }
+}
+
+.facilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.facilityTag {
+  padding: $spacing-xs $spacing-sm;
+  background: $color-bg-glass;
+  border-radius: $radius-xs;
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: $spacing-md;
+  border-top: 2rpx solid $color-divider;
+}
+
+.price {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-price;
+
+  &Unit {
+    font-size: $font-size-sm;
+    font-weight: $font-weight-normal;
+    color: $color-text-tertiary;
+    margin-left: $spacing-xs;
+  }
+}

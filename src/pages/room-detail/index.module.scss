@@ -1,0 +1,168 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding calc(160rpx + env(safe-area-inset-bottom));
+}
+
+.roomHeader {
+  background: linear-gradient(135deg, $color-primary 0%, $color-accent-pink 100%);
+  margin: 0 (-$page-padding) $spacing-md;
+  padding: $spacing-xl $page-padding;
+
+  &Name {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-white;
+    margin-bottom: $spacing-sm;
+  }
+
+  &No {
+    font-size: $font-size-sm;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: $spacing-lg;
+  }
+
+  &Info {
+    display: flex;
+    gap: $spacing-lg;
+  }
+
+  &InfoItem {
+    &Label {
+      font-size: $font-size-xs;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 4rpx;
+    }
+
+    &Value {
+      font-size: $font-size-md;
+      font-weight: $font-weight-semibold;
+      color: $color-text-white;
+    }
+  }
+}
+
+.section {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  border: 2rpx solid $color-border;
+}
+
+.sectionTitle {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &::before {
+    content: '';
+    width: 6rpx;
+    height: 28rpx;
+    background: linear-gradient(180deg, $color-primary 0%, $color-accent-pink 100%);
+    border-radius: $radius-round;
+  }
+}
+
+.description {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  line-height: $line-height-loose;
+}
+
+.facilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.facilityTag {
+  padding: $spacing-sm $spacing-md;
+  background: $color-bg-glass;
+  border-radius: $radius-sm;
+  font-size: $font-size-sm;
+  color: $color-accent-cyan;
+}
+
+.scheduleList {
+  margin-top: $spacing-sm;
+}
+
+.scheduleItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-md 0;
+  border-bottom: 2rpx solid $color-divider;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &Time {
+    font-size: $font-size-sm;
+    color: $color-text-primary;
+  }
+
+  &Status {
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $radius-xs;
+    font-size: $font-size-xs;
+  }
+}
+
+.statusReserved {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusOccupied {
+  background: rgba($color-error, 0.15);
+  color: $color-error;
+}
+
+.emptySchedule {
+  text-align: center;
+  padding: $spacing-xl 0;
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: $spacing-md $page-padding calc($spacing-md + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  border-top: 2rpx solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.priceInfo {
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+
+  &Value {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-price;
+  }
+
+  &Unit {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+    margin-left: $spacing-xs;
+    font-weight: $font-weight-normal;
+  }
+}

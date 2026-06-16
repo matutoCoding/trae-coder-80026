@@ -1,0 +1,141 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding $spacing-xl;
+}
+
+.header {
+  padding: $spacing-lg 0;
+
+  &Title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Subtitle {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+  overflow-x: auto;
+
+  @include scroll-x-container;
+}
+
+.tab {
+  @include scroll-x-item(auto);
+  padding: $spacing-sm $spacing-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-button;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  white-space: nowrap;
+}
+
+.tabActive {
+  background: linear-gradient(135deg, $color-primary 0%, $color-accent-pink 100%);
+  color: $color-text-white;
+  border-color: transparent;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &Icon {
+    font-size: 120rpx;
+    margin-bottom: $spacing-lg;
+    opacity: 0.5;
+  }
+
+  &Text {
+    font-size: $font-size-md;
+    color: $color-text-tertiary;
+    margin-bottom: $spacing-lg;
+  }
+}
+
+.extendModal {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-xl;
+  margin: $spacing-lg;
+
+  &Title {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+    text-align: center;
+    margin-bottom: $spacing-lg;
+  }
+}
+
+.hourOptions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-lg;
+}
+
+.hourOption {
+  flex: 1;
+  padding: $spacing-lg;
+  background: $color-bg-glass;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-md;
+  text-align: center;
+  transition: all $transition-fast;
+
+  &Active {
+    background: linear-gradient(135deg, rgba($color-primary, 0.2) 0%, rgba($color-accent-pink, 0.2) 100%);
+    border-color: $color-primary;
+  }
+
+  &Hours {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: 4rpx;
+  }
+
+  &Price {
+    font-size: $font-size-sm;
+    color: $color-price;
+  }
+}
+
+.extendTotal {
+  text-align: center;
+  padding: $spacing-lg;
+  background: $color-bg-glass;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-lg;
+
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Value {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-price;
+  }
+}
+
+.extendActions {
+  display: flex;
+  gap: $spacing-md;
+}

@@ -1,0 +1,212 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding $spacing-xl;
+}
+
+.header {
+  padding: $spacing-lg 0;
+
+  &Title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Subtitle {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.statCard {
+  background: $color-bg-card;
+  border-radius: $radius-md;
+  padding: $spacing-md;
+  text-align: center;
+  border: 2rpx solid $color-border;
+
+  &Value {
+    font-size: $font-size-xl;
+    font-weight: $font-weight-bold;
+    margin-bottom: 4rpx;
+  }
+
+  &Label {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+}
+
+.valueAvailable { color: $color-success; }
+.valueOccupied { color: $color-error; }
+.valueReserved { color: $color-warning; }
+.valueTotal { color: $color-primary; }
+
+.filterBar {
+  display: flex;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+  overflow-x: auto;
+
+  @include scroll-x-container;
+}
+
+.filterItem {
+  @include scroll-x-item(auto);
+  padding: $spacing-sm $spacing-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-button;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  white-space: nowrap;
+}
+
+.filterItemActive {
+  background: linear-gradient(135deg, $color-primary 0%, $color-accent-pink 100%);
+  color: $color-text-white;
+  border-color: transparent;
+}
+
+.timeline {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  border: 2rpx solid $color-border;
+  margin-bottom: $spacing-md;
+}
+
+.timelineHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-lg;
+}
+
+.roomInfo {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.roomName {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.roomNo {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  margin-top: 4rpx;
+}
+
+.statusBadge {
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.statusAvailable {
+  background: rgba($color-success, 0.15);
+  color: $color-success;
+}
+
+.statusOccupied {
+  background: rgba($color-error, 0.15);
+  color: $color-error;
+}
+
+.statusReserved {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusMaintenance {
+  background: rgba($color-text-tertiary, 0.15);
+  color: $color-text-tertiary;
+}
+
+.timeAxis {
+  position: relative;
+}
+
+.timeLabels {
+  display: flex;
+  margin-bottom: $spacing-sm;
+  padding-left: 0;
+}
+
+.timeLabel {
+  flex: 1;
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+  text-align: center;
+}
+
+.trackContainer {
+  position: relative;
+  height: 64rpx;
+  background: $color-bg-glass;
+  border-radius: $radius-md;
+  overflow: hidden;
+}
+
+.bookingBlock {
+  position: absolute;
+  top: 8rpx;
+  bottom: 8rpx;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-xs;
+  color: $color-text-white;
+  font-weight: $font-weight-medium;
+}
+
+.blockReserved {
+  background: linear-gradient(90deg, $color-warning 0%, #FFB74D 100%);
+}
+
+.blockOccupied {
+  background: linear-gradient(90deg, $color-error 0%, #FF5252 100%);
+}
+
+.legend {
+  display: flex;
+  gap: $spacing-lg;
+  margin-top: $spacing-lg;
+  padding-top: $spacing-md;
+  border-top: 2rpx solid $color-divider;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.legendDot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: $radius-xs;
+}
+
+.dotAvailable { background: $color-success; }
+.dotReserved { background: $color-warning; }
+.dotOccupied { background: $color-error; }
+.dotMaintenance { background: $color-text-tertiary; }

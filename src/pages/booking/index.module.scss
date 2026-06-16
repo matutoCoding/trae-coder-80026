@@ -1,0 +1,224 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  padding: 0 $page-padding $spacing-xl;
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
+}
+
+.header {
+  padding: $spacing-lg 0;
+
+  &Title {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-text-primary;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Subtitle {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+}
+
+.section {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  border: 2rpx solid $color-border;
+}
+
+.sectionTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-md;
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  &::before {
+    content: '';
+    width: 6rpx;
+    height: 32rpx;
+    background: linear-gradient(180deg, $color-primary 0%, $color-accent-pink 100%);
+    border-radius: $radius-round;
+  }
+}
+
+.peopleSelector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md 0;
+}
+
+.peopleLabel {
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+}
+
+.peopleControl {
+  display: flex;
+  align-items: center;
+  gap: $spacing-lg;
+}
+
+.peopleBtn {
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $color-bg-glass;
+  border-radius: $radius-round;
+  font-size: $font-size-xl;
+  color: $color-text-primary;
+  border: 2rpx solid $color-border;
+
+  &:active {
+    background: rgba($color-primary, 0.2);
+    border-color: $color-primary;
+  }
+}
+
+.peopleValue {
+  min-width: 80rpx;
+  text-align: center;
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-price;
+}
+
+.roomTypes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.roomTypeBtn {
+  padding: $spacing-sm $spacing-lg;
+  background: $color-bg-glass;
+  border: 2rpx solid transparent;
+  border-radius: $radius-button;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  transition: all $transition-fast;
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.roomTypeBtnSelected {
+  background: linear-gradient(135deg, rgba($color-primary, 0.2) 0%, rgba($color-accent-pink, 0.2) 100%);
+  border-color: $color-primary;
+  color: $color-primary;
+}
+
+.inputField {
+  margin-bottom: $spacing-md;
+
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    margin-bottom: $spacing-sm;
+  }
+
+  &Input {
+    width: 100%;
+    height: 80rpx;
+    padding: 0 $spacing-md;
+    background: $color-bg-glass;
+    border: 2rpx solid $color-border;
+    border-radius: $radius-md;
+    font-size: $font-size-md;
+    color: $color-text-primary;
+
+    &::placeholder {
+      color: $color-text-tertiary;
+    }
+  }
+}
+
+.selectedPackages {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 2rpx solid $color-divider;
+}
+
+.packageSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-sm 0;
+
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+  }
+
+  &Action {
+    font-size: $font-size-sm;
+    color: $color-primary;
+  }
+}
+
+.bottomBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: $spacing-md $page-padding calc($spacing-md + env(safe-area-inset-bottom));
+  background: $color-bg-card;
+  border-top: 2rpx solid $color-border;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+}
+
+.priceInfo {
+  &Label {
+    font-size: $font-size-sm;
+    color: $color-text-tertiary;
+  }
+
+  &Value {
+    font-size: $font-size-xxl;
+    font-weight: $font-weight-bold;
+    color: $color-price;
+  }
+}
+
+.submitBtn {
+  width: 320rpx;
+}
+
+.suggestedRoom {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: linear-gradient(135deg, rgba($color-primary, 0.1) 0%, rgba($color-accent-pink, 0.1) 100%);
+  border: 2rpx solid rgba($color-primary, 0.3);
+  border-radius: $radius-md;
+
+  &Title {
+    font-size: $font-size-sm;
+    color: $color-accent-cyan;
+    margin-bottom: $spacing-xs;
+  }
+
+  &Name {
+    font-size: $font-size-lg;
+    font-weight: $font-weight-semibold;
+    color: $color-text-primary;
+    margin-bottom: 4rpx;
+  }
+
+  &Desc {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+  }
+}

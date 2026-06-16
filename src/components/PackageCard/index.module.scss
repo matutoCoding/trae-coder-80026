@@ -1,0 +1,134 @@
+@use '@/styles/variables.scss' as *;
+
+.card {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  border: 2rpx solid $color-border;
+  transition: all $transition-base;
+
+  &:active {
+    transform: scale(0.99);
+    border-color: $color-primary;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: $spacing-sm;
+}
+
+.title {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  flex: 1;
+}
+
+.hotBadge {
+  padding: 4rpx $spacing-sm;
+  background: linear-gradient(135deg, $color-accent-pink 0%, $color-primary 100%);
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  color: $color-text-white;
+  margin-left: $spacing-sm;
+}
+
+.description {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  line-height: $line-height-normal;
+  margin-bottom: $spacing-md;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+}
+
+.tag {
+  padding: 4rpx $spacing-sm;
+  background: $color-bg-glass;
+  border-radius: $radius-xs;
+  font-size: $font-size-xs;
+  color: $color-accent-cyan;
+}
+
+.items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+  padding: $spacing-md;
+  background: $color-bg-glass;
+  border-radius: $radius-md;
+}
+
+.item {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  padding: 4rpx $spacing-sm;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: $radius-xs;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: $spacing-md;
+  border-top: 2rpx solid $color-divider;
+}
+
+.price {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+}
+
+.currentPrice {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: $color-price;
+}
+
+.originalPrice {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  text-decoration: line-through;
+}
+
+.quantityControl {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+.quantityBtn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $color-bg-glass;
+  border-radius: $radius-round;
+  font-size: $font-size-lg;
+  color: $color-text-primary;
+
+  &:active {
+    background: rgba($color-primary, 0.2);
+  }
+}
+
+.quantityValue {
+  min-width: 48rpx;
+  text-align: center;
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}

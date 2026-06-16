@@ -1,0 +1,112 @@
+@use '@/styles/variables.scss' as *;
+
+.card {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-md;
+  border: 2rpx solid $color-border;
+  transition: all $transition-base;
+
+  &:active {
+    transform: scale(0.99);
+    border-color: $color-primary;
+  }
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+.orderNo {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.statusBadge {
+  padding: $spacing-xs $spacing-md;
+  border-radius: $radius-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+}
+
+.statusPending {
+  background: rgba($color-warning, 0.15);
+  color: $color-warning;
+}
+
+.statusConfirmed {
+  background: rgba($color-primary, 0.15);
+  color: $color-primary;
+}
+
+.statusCheckedIn {
+  background: rgba($color-accent-cyan, 0.15);
+  color: $color-accent-cyan;
+}
+
+.statusCompleted {
+  background: rgba($color-success, 0.15);
+  color: $color-success;
+}
+
+.statusCancelled {
+  background: rgba($color-text-tertiary, 0.15);
+  color: $color-text-tertiary;
+}
+
+.statusExtended {
+  background: rgba($color-accent-gold, 0.15);
+  color: $color-accent-gold;
+}
+
+.info {
+  margin-bottom: $spacing-md;
+}
+
+.roomName {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+  margin-bottom: $spacing-xs;
+}
+
+.roomDetail {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-bottom: $spacing-sm;
+}
+
+.timeInfo {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: $spacing-md;
+  border-top: 2rpx solid $color-divider;
+}
+
+.price {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: $color-price;
+
+  &Label {
+    font-size: $font-size-xs;
+    color: $color-text-tertiary;
+    font-weight: $font-weight-normal;
+    margin-right: $spacing-xs;
+  }
+}
+
+.actions {
+  display: flex;
+  gap: $spacing-sm;
+}
