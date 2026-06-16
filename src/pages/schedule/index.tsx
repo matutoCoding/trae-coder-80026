@@ -3,9 +3,10 @@ import { View, Text, ScrollView } from '@tarojs/components';
 import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import { useRoomStore } from '../../store/useRoomStore';
+import { useBookingStore } from '../../store/useBookingStore';
 import type { RoomType, RoomStatus } from '../../types/room';
 import { ROOM_TYPE_LABEL, ROOM_STATUS_LABEL } from '../../types/room';
-import { getTimeSlots, getToday, addDays } from '../../utils/timeUtils';
+import { getTimeSlots, getToday, addDays, calculateMinutesDiff } from '../../utils/timeUtils';
 import styles from './index.module.scss';
 
 const ALL_TYPES: (RoomType | 'all')[] = ['all', 'small', 'medium', 'large', 'vip', 'luxury'];
@@ -76,13 +77,87 @@ const SCHEDULE_STYLES = `
   font-size: 20rpx;
   line-height: 1.3;
 }
+.block-selected {
+  border: 4rpx solid #FFD700 !important;
+  box-shadow: 0 0 24rpx rgba(255, 215, 0, 0.7) !important;
+  z-index: 10;
+}
+.selected-banner {
+  margin: 16rpx 32rpx 0;
+  padding: 24rpx 28rpx;
+  background: linear-gradient(135deg, rgba(123,47,253,0.25) 0%, rgba(255,61,138,0.25) 100%);
+  border: 2rpx solid #FFD700;
+  border-radius: 16rpx;
+}
+.selected-banner-title {
+  font-size: 28rpx;
+  color: #FFD700;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+.selected-banner-time {
+  font-size: 30rpx;
+  color: #fff;
+  font-weight: 600;
+}
+.selected-banner-duration {
+  font-size: 24rpx;
+  color: #8E8EB2;
+  margin-top: 6rpx;
+}
+.selected-banner-close {
+  float: right;
+  color: #6E6E91;
+  font-size: 28rpx;
+  padding: 0 12rpx;
+}
 `;
 
 const SchedulePage: React.FC = () => {
   const { rooms, schedules } = useRoomStore();
+  const { getBookingById } = useBookingStore();
   const [selectedType, setSelectedType] = useState<RoomType | 'all'>('all');
   const [dateMode, setDateMode] = useState<DateViewMode>('today');
   const [weekIndex, setWeekIndex] = useState(0);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+
+  const selectedBookingInfo = useMemo(() => {
+    if (!selectedBookingId) return null;
+    const booking = getBookingById(selectedBookingId);
+    const allSlots: { date: string; startTime: string; endTime: string; roomId: string; roomName: string }[] = [];
+    let roomId = '';
+    for (const rId of Object.keys(schedules)) {
+      for (const slot of schedules[rId] || []) {
+        if (slot.bookingId === selectedBookingId) {
+          const room = rooms.find(r => r.id === rId);
+          allSlots.push({ date: slot.date || '-', startTime: slot.startTime, endTime: slot.endTime, roomId: rId, roomName: room?.name || '' });
+          roomId = rId;
+        }
+      }
+    }
+    if (allSlots.length === 0) return null;
+    allSlots.sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
+    const first = allSlots[0];
+    const last = allSlots[allSlots.length - 1];
+    let totalMin = 0;
+    for (const s of allSlots) totalMin += calculateMinutesDiff(s.startTime, s.endTime);
+    const hours = Math.floor(totalMin / 60);
+    const mins = totalMin % 60;
+    return {
+      bookingId: selectedBookingId,
+      customerName: booking?.customerName,
+      roomId,
+      roomName: first.roomName,
+      segments: allSlots,
+      startDate: first.date,
+      startTime: first.startTime,
+      endDate: last.date,
+      endTime: last.endTime,
+      totalHours: hours,
+      totalMins: mins,
+      totalMinutes: totalMin
+    };
+  }, [selectedBookingId, schedules, rooms, getBookingById]);
 
   const TODAY = getToday();
   const TOMORROW = addDays(TODAY, 1);
@@ -212,6 +287,28 @@ const SchedulePage: React.FC = () => {
         （{displayDayLabel(activeDate)}）
       </View>
 
+      {selectedBookingInfo && (
+        <View className="selected-banner">
+          <style>{SCHEDULE_STYLES}</style>
+          <View className="selected-banner-close" onClick={(e) => { e.stopPropagation(); setSelectedBookingId(null); }}>
+            ✕
+          </View>
+          <View className="selected-banner-title">
+            {selectedBookingInfo.roomName} · 完整占用时段
+            {selectedBookingInfo.customerName && ` · ${selectedBookingInfo.customerName}`}
+          </View>
+          <View className="selected-banner-time">
+            {selectedBookingInfo.startDate.slice(5)} {selectedBookingInfo.startTime}
+            <Text style={{ color: '#FFD700', margin: '0 12rpx' }}>→</Text>
+            {selectedBookingInfo.endDate.slice(5)} {selectedBookingInfo.endTime}
+          </View>
+          <View className="selected-banner-duration">
+            共 {selectedBookingInfo.totalHours} 小时 {selectedBookingInfo.totalMins > 0 ? `${selectedBookingInfo.totalMins} 分` : ''}
+            {selectedBookingInfo.segments.length > 1 && `（跨 ${selectedBookingInfo.segments.length} 天）`}
+          </View>
+        </View>
+      )}
+
       <ScrollView className={styles.filterBar} scrollX>
         {ALL_TYPES.map(type => (
           <View
@@ -269,8 +366,17 @@ const SchedulePage: React.FC = () => {
                   return (
                     <View
                       key={`${booking.bookingId}-${index}`}
-                      className={classnames(styles.bookingBlock, blockClass, { 'block-overnight': isOvernightSegment })}
+                      className={classnames(styles.bookingBlock, blockClass, {
+                        'block-overnight': isOvernightSegment,
+                        'block-selected': selectedBookingId === booking.bookingId
+                      })}
                       style={{ left: `${left}%`, right: `${right}%` }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBookingId(
+                          selectedBookingId === booking.bookingId ? null : booking.bookingId
+                        );
+                      }}
                     >
                       <View className="block-label">
                         {booking.startTime}-{booking.endTime}

@@ -6,6 +6,7 @@ import OrderCard from '../../components/OrderCard';
 import GradientButton from '../../components/GradientButton';
 import { useBookingStore } from '../../store/useBookingStore';
 import { useRoomStore } from '../../store/useRoomStore';
+import { usePackageStore } from '../../store/usePackageStore';
 import type { BookingStatus } from '../../types/booking';
 import { BOOKING_STATUS_LABEL } from '../../types/booking';
 import styles from './index.module.scss';
@@ -20,13 +21,119 @@ const TABS: { key: TabType; label: string }[] = [
   { key: 'completed', label: '已完成' }
 ];
 
+const ORDERS_MODIFY_STYLES = `
+.modify-modal {
+  background: #1E1E3A;
+  border-radius: 24rpx;
+  padding: 48rpx;
+  margin: 48rpx;
+  max-width: 680rpx;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.modify-modal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+.modify-field {
+  margin-bottom: 28rpx;
+}
+.modify-field-label {
+  color: #8E8EB2;
+  font-size: 26rpx;
+  margin-bottom: 12rpx;
+}
+.modify-field-value {
+  color: #FFFFFF;
+  font-size: 30rpx;
+  padding: 20rpx 24rpx;
+  background: rgba(123,47,253,0.08);
+  border-radius: 12rpx;
+  border: 2rpx solid rgba(255,255,255,0.08);
+}
+.modify-duration-options {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+.modify-duration-option {
+  padding: 16rpx 24rpx;
+  border-radius: 12rpx;
+  background: rgba(123,47,253,0.08);
+  border: 2rpx solid rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 26rpx;
+}
+.modify-duration-option-active {
+  background: linear-gradient(135deg, rgba(123,47,253,0.4) 0%, rgba(255,61,138,0.4) 100%);
+  border-color: #FFD700;
+}
+.modify-pkg-option {
+  padding: 16rpx 20rpx;
+  border-radius: 12rpx;
+  background: rgba(123,47,253,0.08);
+  border: 2rpx solid rgba(255,255,255,0.08);
+  margin-bottom: 12rpx;
+  color: #fff;
+}
+.modify-pkg-option-active {
+  background: linear-gradient(135deg, rgba(123,47,253,0.4) 0%, rgba(255,61,138,0.4) 100%);
+  border-color: #FFD700;
+}
+.modify-pkg-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #fff;
+}
+.modify-pkg-price {
+  font-size: 24rpx;
+  color: #FFD700;
+  margin-top: 4rpx;
+}
+.modify-summary {
+  padding: 24rpx;
+  background: rgba(123,47,253,0.1);
+  border-radius: 12rpx;
+  margin-bottom: 24rpx;
+}
+.modify-summary-row {
+  display: flex;
+  justify-content: space-between;
+  color: #fff;
+  font-size: 26rpx;
+  padding: 6rpx 0;
+}
+.modify-summary-hl {
+  color: #FFD700;
+  font-weight: 700;
+  font-size: 32rpx;
+}
+.modify-actions {
+  display: flex;
+  gap: 24rpx;
+}
+`;
+
 const OrdersPage: React.FC = () => {
-  const { bookings, extendBooking, cancelBooking, checkInBooking, checkOutBooking } = useBookingStore();
+  const { bookings, extendBooking, cancelBooking, checkInBooking, checkOutBooking, modifyBooking } = useBookingStore();
   const { getRoomById } = useRoomStore();
+  const { packages, getPackageById } = usePackageStore();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendBookingId, setExtendBookingId] = useState<string | null>(null);
   const [selectedHours, setSelectedHours] = useState(1);
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [modifyBookingId, setModifyBookingId] = useState<string | null>(null);
+  const [modifyState, setModifyState] = useState({
+    peopleCount: 2,
+    date: '',
+    startTime: '18:00',
+    duration: 4,
+    packageIds: [] as string[]
+  });
 
   const filteredBookings = useMemo(() => {
     if (activeTab === 'all') return bookings;
@@ -99,6 +206,63 @@ const OrdersPage: React.FC = () => {
     });
   };
 
+  const handleModify = (bookingId: string) => {
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking) return;
+    setModifyBookingId(bookingId);
+    setModifyState({
+      peopleCount: booking.peopleCount,
+      date: booking.date,
+      startTime: booking.startTime,
+      duration: booking.duration,
+      packageIds: [...booking.packageIds]
+    });
+    setShowModifyModal(true);
+  };
+
+  const modifyPreview = useMemo(() => {
+    if (!modifyBookingId) return null;
+    const booking = bookings.find(b => b.id === modifyBookingId);
+    if (!booking) return null;
+    const pkgTotal = modifyState.packageIds.reduce((sum, id) => {
+      const p = getPackageById(id);
+      return sum + (p?.discountPrice || 0);
+    }, 0);
+    const room = getRoomById(booking.roomId);
+    const base = (room?.hourlyRate || 0) * modifyState.duration;
+    return {
+      baseAmount: base,
+      packageAmount: pkgTotal,
+      extendAmount: booking.extendAmount || 0,
+      totalAmount: base + pkgTotal + (booking.extendAmount || 0)
+    };
+  }, [modifyBookingId, modifyState, bookings, getPackageById, getRoomById]);
+
+  const togglePackage = (pkgId: string) => {
+    setModifyState(s => {
+      const has = s.packageIds.includes(pkgId);
+      return { ...s, packageIds: has ? s.packageIds.filter(x => x !== pkgId) : [...s.packageIds, pkgId] };
+    });
+  };
+
+  const confirmModify = async () => {
+    if (!modifyBookingId) return;
+    const res = await modifyBooking(modifyBookingId, {
+      peopleCount: modifyState.peopleCount,
+      date: modifyState.date,
+      startTime: modifyState.startTime,
+      duration: modifyState.duration,
+      packageIds: [...modifyState.packageIds]
+    });
+    if (res.success) {
+      Taro.showToast({ title: '修改成功', icon: 'success' });
+      setShowModifyModal(false);
+      setModifyBookingId(null);
+    } else {
+      Taro.showToast({ title: res.error || '修改失败', icon: 'none' });
+    }
+  };
+
   const goToBooking = () => {
     Taro.switchTab({ url: '/pages/booking/index' });
   };
@@ -139,6 +303,7 @@ const OrdersPage: React.FC = () => {
             onCancel={() => handleCancel(booking.id)}
             onCheckIn={() => handleCheckIn(booking.id)}
             onCheckOut={() => handleCheckOut(booking.id)}
+            onModify={() => handleModify(booking.id)}
           />
         ))
       )}
@@ -196,6 +361,139 @@ const OrdersPage: React.FC = () => {
             </View>
           </View>
         </View>
+      )}
+
+      {showModifyModal && modifyBookingId && modifyPreview && (
+        <>
+          <style>{ORDERS_MODIFY_STYLES}</style>
+          <View
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1001
+            }}
+            onClick={() => setShowModifyModal(false)}
+          >
+            <View className="modify-modal" onClick={(e) => e.stopPropagation()}>
+              <View className="modify-modal-title">修改预订</View>
+
+              <View className="modify-field">
+                <View className="modify-field-label">人数</View>
+                <View className="modify-field-value" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <GradientButton size="small" ghost onClick={() => setModifyState(s => ({ ...s, peopleCount: Math.max(1, s.peopleCount - 1) }))}>-</GradientButton>
+                  <Text style={{ minWidth: 60, textAlign: 'center', fontSize: 32, fontWeight: 700 }}>{modifyState.peopleCount}人</Text>
+                  <GradientButton size="small" ghost onClick={() => setModifyState(s => ({ ...s, peopleCount: Math.min(40, s.peopleCount + 1) }))}>+</GradientButton>
+                </View>
+              </View>
+
+              <View className="modify-field">
+                <View className="modify-field-label">日期</View>
+                <View className="modify-field-value" onClick={() => {
+                  Taro.showActionSheet({
+                    itemList: [
+                      '今天', '明天', '后天'
+                    ],
+                    success: (res) => {
+                      const today = new Date();
+                      if (res.tapIndex === 0) setModifyState(s => ({ ...s, date: today.toISOString().slice(0, 10) }));
+                      if (res.tapIndex === 1) {
+                        const d = new Date(today.getTime() + 86400000);
+                        setModifyState(s => ({ ...s, date: d.toISOString().slice(0, 10) }));
+                      }
+                      if (res.tapIndex === 2) {
+                        const d = new Date(today.getTime() + 86400000 * 2);
+                        setModifyState(s => ({ ...s, date: d.toISOString().slice(0, 10) }));
+                      }
+                    }
+                  });
+                }}>{modifyState.date}</View>
+              </View>
+
+              <View className="modify-field">
+                <View className="modify-field-label">开始时间</View>
+                <View className="modify-duration-options">
+                  {['12:00', '14:00', '16:00', '18:00', '20:00', '22:00', '00:00'].map(t => (
+                    <View
+                      key={t}
+                      className={classnames('modify-duration-option', {
+                        'modify-duration-option-active': modifyState.startTime === t
+                      })}
+                      onClick={() => setModifyState(s => ({ ...s, startTime: t }))}
+                    >{t}</View>
+                  ))}
+                </View>
+              </View>
+
+              <View className="modify-field">
+                <View className="modify-field-label">时长（小时）</View>
+                <View className="modify-duration-options">
+                  {[2, 3, 4, 5, 6, 8].map(h => (
+                    <View
+                      key={h}
+                      className={classnames('modify-duration-option', {
+                        'modify-duration-option-active': modifyState.duration === h
+                      })}
+                      onClick={() => setModifyState(s => ({ ...s, duration: h }))}
+                    >{h}h</View>
+                  ))}
+                </View>
+              </View>
+
+              <View className="modify-field">
+                <View className="modify-field-label">酒水套餐</View>
+                {packages.map(pkg => (
+                  <View
+                    key={pkg.id}
+                    className={classnames('modify-pkg-option', {
+                      'modify-pkg-option-active': modifyState.packageIds.includes(pkg.id)
+                    })}
+                    onClick={() => togglePackage(pkg.id)}
+                  >
+                    <View className="modify-pkg-name">{pkg.name}</View>
+                    <View className="modify-pkg-price">¥{pkg.discountPrice}（原价¥{pkg.originalPrice}）</View>
+                  </View>
+                ))}
+              </View>
+
+              <View className="modify-summary">
+                <View className="modify-summary-row">
+                  <Text>包厢费</Text>
+                  <Text>¥{modifyPreview.baseAmount}</Text>
+                </View>
+                <View className="modify-summary-row">
+                  <Text>套餐费</Text>
+                  <Text>¥{modifyPreview.packageAmount}</Text>
+                </View>
+                {modifyPreview.extendAmount > 0 && (
+                  <View className="modify-summary-row">
+                    <Text>已续钟</Text>
+                    <Text>¥{modifyPreview.extendAmount}</Text>
+                  </View>
+                )}
+                <View className="modify-summary-row" style={{ marginTop: 12, paddingTop: 12, borderTop: '2rpx dashed rgba(255,255,255,0.1)' }}>
+                  <Text>预计总价</Text>
+                  <Text className="modify-summary-hl">¥{modifyPreview.totalAmount}</Text>
+                </View>
+              </View>
+
+              <View className="modify-actions">
+                <GradientButton block ghost onClick={() => { setShowModifyModal(false); setModifyBookingId(null); }}>
+                  取消
+                </GradientButton>
+                <GradientButton block onClick={confirmModify}>
+                  确认修改
+                </GradientButton>
+              </View>
+            </View>
+          </View>
+        </>
       )}
     </ScrollView>
   );

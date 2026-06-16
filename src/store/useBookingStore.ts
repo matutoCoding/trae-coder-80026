@@ -6,7 +6,7 @@ import { mockBookings } from '../data/bookings';
 import { mockPackages } from '../data/packages';
 import { findBestRoom } from '../utils/roomAllocator';
 import { findLeastLoadedCounter } from '../utils/loadBalancer';
-import { generateOrderNo, addHours, getToday, generateQueueNo } from '../utils/timeUtils';
+import { generateOrderNo, addHours, getToday, generateQueueNo, addDays } from '../utils/timeUtils';
 import { saveToStorage, loadFromStorage } from '../utils/persist';
 import { useRoomStore } from './useRoomStore';
 import { useQueueStore } from './useQueueStore';
@@ -122,13 +122,21 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
     try {
       const { rooms, schedules } = useRoomStore.getState();
+
+      const startHour = parseInt(request.startTime.split(':')[0], 10);
+      let effectiveDate = request.date;
+      if (startHour < 12) {
+        effectiveDate = addDays(request.date, 1);
+        console.log('[BookingStore] 凌晨时段自动跳次日', { from: request.date, to: effectiveDate, startTime: request.startTime });
+      }
+
       const endTime = addHours(request.startTime, request.duration);
 
       const allocation = findBestRoom(
         rooms,
         schedules,
         request.peopleCount,
-        request.date,
+        effectiveDate,
         request.startTime,
         endTime,
         request.preferredRoomType
@@ -163,7 +171,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         customerName: request.customerName,
         customerPhone: request.customerPhone,
         peopleCount: request.peopleCount,
-        date: request.date,
+        date: effectiveDate,
         startTime: request.startTime,
         endTime,
         originalEndTime: endTime,
@@ -182,7 +190,7 @@ export const useBookingStore = create<BookingState>((set, get) => ({
 
       const scheduleOk = useRoomStore.getState().addBookingToSchedule(room.id, {
         bookingId: booking.id,
-        date: request.date,
+        date: effectiveDate,
         startTime: request.startTime,
         endTime,
         status: 'reserved'
@@ -296,11 +304,17 @@ export const useBookingStore = create<BookingState>((set, get) => ({
     try {
       const roomStore = useRoomStore.getState();
       const newPeopleCount = request.peopleCount ?? booking.peopleCount;
-      const newDate = request.date ?? booking.date;
+      let newDate = request.date ?? booking.date;
       const newStartTime = request.startTime ?? booking.startTime;
       const newDuration = request.duration ?? booking.duration;
       const newPackageIds = request.packageIds ?? booking.packageIds;
       const newEndTime = addHours(newStartTime, newDuration);
+
+      const startHour = parseInt(newStartTime.split(':')[0], 10);
+      if (startHour < 12) {
+        newDate = addDays(request.date ?? booking.date, 1);
+        console.log('[BookingStore] 修改预订-凌晨时段自动跳次日', { from: request.date ?? booking.date, to: newDate, startTime: newStartTime });
+      }
 
       let roomId = booking.roomId;
       let room = roomStore.getRoomById(roomId);
@@ -311,6 +325,12 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         request.date !== undefined ||
         request.startTime !== undefined ||
         request.duration !== undefined;
+
+      const oldRoomId = booking.roomId;
+      const oldDate = booking.date;
+      const oldStartTime = booking.startTime;
+      const oldEndTime = booking.endTime;
+      const oldStatus = booking.status === 'checked_in' || booking.status === 'extended' ? 'occupied' : 'reserved';
 
       if (needsRoomReallocation) {
         const { rooms, schedules } = roomStore;
@@ -326,16 +346,25 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         );
 
         if (!allocation.success || !allocation.room) {
-          return { success: false, error: allocation.reason || '没有可用包厢' };
+          console.error('[BookingStore] 修改预订-新时段无可用包厢，旧排期保留');
+          return { success: false, error: allocation.reason || '没有可用包厢，旧预订已保留' };
         }
         room = allocation.room as Room;
         roomId = room.id;
-
-        if (roomId !== booking.roomId) {
-          roomStore.removeBookingFromSchedule(booking.roomId, bookingId);
-        }
       } else {
-        roomStore.removeBookingFromSchedule(booking.roomId, bookingId);
+        const hasConflict = roomStore.hasConflict(roomId, newDate, newStartTime, newEndTime, bookingId);
+        if (hasConflict) {
+          console.error('[BookingStore] 修改预订-新时段冲突，旧排期保留');
+          return { success: false, error: '新包厢时段冲突，请更换时间' };
+        }
+      }
+
+      if (roomId !== oldRoomId) {
+        roomStore.removeBookingFromSchedule(oldRoomId, bookingId);
+      } else {
+        if (needsRoomReallocation) {
+          roomStore.removeBookingFromSchedule(oldRoomId, bookingId);
+        }
       }
 
       const scheduleOk = roomStore.addBookingToSchedule(roomId, {
@@ -343,10 +372,21 @@ export const useBookingStore = create<BookingState>((set, get) => ({
         date: newDate,
         startTime: newStartTime,
         endTime: newEndTime,
-        status: booking.status === 'checked_in' ? 'occupied' : 'reserved'
+        status: booking.status === 'checked_in' || booking.status === 'extended' ? 'occupied' : 'reserved'
       });
+
       if (!scheduleOk) {
-        return { success: false, error: '包厢排期冲突，请更换时间' };
+        console.error('[BookingStore] 修改预订-写新排期失败，回滚旧排期');
+        if (roomId !== oldRoomId || needsRoomReallocation) {
+          roomStore.addBookingToSchedule(oldRoomId, {
+            bookingId,
+            date: oldDate,
+            startTime: oldStartTime,
+            endTime: oldEndTime,
+            status: oldStatus
+          });
+        }
+        return { success: false, error: '包厢排期冲突，请更换时间，旧预订已保留' };
       }
 
       const packageAmount = newPackageIds.reduce((total, pid) => {

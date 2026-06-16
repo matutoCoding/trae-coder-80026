@@ -14,6 +14,7 @@ interface OrderCardProps {
   onCancel?: () => void;
   onCheckIn?: () => void;
   onCheckOut?: () => void;
+  onModify?: () => void;
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({
@@ -21,7 +22,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onExtend,
   onCancel,
   onCheckIn,
-  onCheckOut
+  onCheckOut,
+  onModify
 }) => {
   const statusClass = {
     pending: styles.statusPending,
@@ -43,6 +45,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
   const canCancel = booking.status === 'pending' || booking.status === 'confirmed';
   const canCheckIn = booking.status === 'confirmed';
   const canCheckOut = booking.status === 'checked_in' || booking.status === 'extended';
+  const canModify = booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'extended';
 
   return (
     <View className={styles.card} onClick={handleClick}>
@@ -86,6 +89,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
             {canCheckOut && (
               <GradientButton size="small" variant="gold" onClick={onCheckOut}>
                 离场
+              </GradientButton>
+            )}
+            {canModify && (
+              <GradientButton size="small" variant="cyan" onClick={onModify}>
+                改预订
               </GradientButton>
             )}
             {canExtend && (

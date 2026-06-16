@@ -22,6 +22,7 @@ const QUEUE_UI_STYLES = `
   padding: 40rpx;
   margin: 40rpx;
   min-width: 500rpx;
+  max-width: 640rpx;
 }
 .modal-title {
   font-size: 34rpx;
@@ -29,6 +30,12 @@ const QUEUE_UI_STYLES = `
   color: #fff;
   text-align: center;
   margin-bottom: 32rpx;
+}
+.modal-subtitle {
+  font-size: 26rpx;
+  color: #8E8EB2;
+  margin-bottom: 20rpx;
+  margin-top: 16rpx;
 }
 .counter-option {
   padding: 28rpx 24rpx;
@@ -41,6 +48,10 @@ const QUEUE_UI_STYLES = `
 }
 .counter-option-online {
   border-color: rgba(123,47,253,0.5);
+}
+.counter-option-active {
+  background: linear-gradient(135deg, rgba(123,47,253,0.35) 0%, rgba(255,61,138,0.35) 100%);
+  border-color: #FFD700;
 }
 .modal-actions {
   display: flex;
@@ -58,6 +69,34 @@ const QUEUE_UI_STYLES = `
   margin-left: 8rpx;
   vertical-align: middle;
 }
+.reason-tag {
+  display: inline-block;
+  background: rgba(255, 215, 0, 0.15);
+  color: #FFD700;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+  border: 2rpx solid rgba(255, 215, 0, 0.4);
+  vertical-align: middle;
+}
+.reason-options {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+.reason-option {
+  padding: 16rpx 24rpx;
+  border-radius: 12rpx;
+  background: rgba(123,47,253,0.08);
+  border: 2rpx solid rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 26rpx;
+}
+.reason-option-active {
+  background: linear-gradient(135deg, rgba(123,47,253,0.4) 0%, rgba(255,61,138,0.4) 100%);
+  border-color: #FFD700;
+}
 `;
 
 const QueuePage: React.FC = () => {
@@ -66,6 +105,8 @@ const QueuePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('waiting');
   const [showTransfer, setShowTransfer] = useState<string | null>(null);
   const [showPriority, setShowPriority] = useState<string | null>(null);
+  const [priorityCounterId, setPriorityCounterId] = useState<string>('');
+  const [priorityReason, setPriorityReason] = useState<string>('VIP客户');
 
   const overview = useMemo(() => {
     return {
@@ -157,24 +198,24 @@ const QueuePage: React.FC = () => {
   };
 
   const handleInsertFront = (queueItemId: string) => {
-    Taro.showModal({
-      title: '确认插队',
-      content: '将该客人插入当前窗口队首？',
-      success: (res) => {
-        if (res.confirm) {
-          const ok = moveToFront(queueItemId);
-          if (ok) {
-            Taro.showToast({ title: '已插队到队首', icon: 'success' });
-          } else {
-            Taro.showToast({ title: '操作失败', icon: 'none' });
-          }
-          setShowPriority(null);
-        } else {
-          setShowPriority(null);
-        }
-      },
-      fail: () => setShowPriority(null)
+    const item = queueItems.find(q => q.id === queueItemId);
+    setPriorityCounterId(item?.counterId || '');
+    setPriorityReason('VIP客户');
+    setShowPriority(queueItemId);
+  };
+
+  const confirmInsertFront = () => {
+    if (!showPriority) return;
+    const ok = moveToFront(showPriority, {
+      targetCounterId: priorityCounterId || undefined,
+      reason: priorityReason
     });
+    if (ok) {
+      Taro.showToast({ title: '已插队到队首', icon: 'success' });
+    } else {
+      Taro.showToast({ title: '操作失败', icon: 'none' });
+    }
+    setShowPriority(null);
   };
 
   const TransferModal = () => {
@@ -213,6 +254,61 @@ const QueuePage: React.FC = () => {
           </View>
           <View className="modal-actions">
             <GradientButton size="small" ghost onClick={() => setShowTransfer(null)}>取消</GradientButton>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const PriorityModal = () => {
+    if (!showPriority) return null;
+    const item = queueItems.find(q => q.id === showPriority);
+    if (!item) return null;
+    const availableCounters = counters.filter(c => c.status !== 'offline');
+    const reasonOptions = ['VIP客户', '长辈优先', '包场客户', '特殊情况', '熟客优先', '其他'];
+    return (
+      <View style={
+        {
+          position: 'fixed', left: 0, right: 0, top: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.75)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }
+      }
+        onClick={() => setShowPriority(null)}
+      >
+        <View className="priority-modal" onClick={e => e.stopPropagation()}>
+          <style>{QUEUE_UI_STYLES}</style>
+          <View className="modal-title">插队处理：{item.customerName}（{item.queueNo}）</View>
+
+          <View className="modal-subtitle">选择目标窗口</View>
+          <View>
+            {availableCounters.map(c => (
+              <View
+                key={c.id}
+                className={classnames('counter-option', 'counter-option-online', {
+                  'counter-option-active': (priorityCounterId || item.counterId) === c.id
+                })}
+                onClick={() => setPriorityCounterId(c.id)}
+              >
+                {c.name} ｜等待 {c.waitingQueueCount}｜服务中 {c.currentServingCount}
+              </View>
+            ))}
+          </View>
+
+          <View className="modal-subtitle">插队原因</View>
+          <View className="reason-options">
+            {reasonOptions.map(r => (
+              <View
+                key={r}
+                className={classnames('reason-option', { 'reason-option-active': priorityReason === r })}
+                onClick={() => setPriorityReason(r)}
+              >{r}</View>
+            ))}
+          </View>
+
+          <View className="modal-actions">
+            <GradientButton block ghost onClick={() => setShowPriority(null)}>取消</GradientButton>
+            <GradientButton block onClick={confirmInsertFront}>确认插队</GradientButton>
           </View>
         </View>
       </View>
@@ -322,6 +418,7 @@ const QueuePage: React.FC = () => {
                     {item.queueNo}
                     {item.isVip && <Text className="vip-tag">VIP</Text>}
                     {(item.priority || 0) > 100 && !item.isVip && <Text className="vip-tag">优</Text>}
+                    {item.priorityReason && <Text className="reason-tag">{item.priorityReason}</Text>}
                   </View>
                   <View className={styles.queueDetails}>
                     <View className={styles.queueDetailsName}>
@@ -340,7 +437,7 @@ const QueuePage: React.FC = () => {
 
                   {item.status === 'waiting' && (
                     <>
-                      <GradientButton size="small" onClick={() => { setShowPriority(item.id); handleInsertFront(item.id); }}>
+                      <GradientButton size="small" onClick={() => handleInsertFront(item.id)}>
                         插队
                       </GradientButton>
                       <GradientButton size="small" ghost onClick={() => setShowTransfer(item.id)}>
@@ -367,6 +464,7 @@ const QueuePage: React.FC = () => {
       </View>
 
       <TransferModal />
+      <PriorityModal />
     </ScrollView>
   );
 };
