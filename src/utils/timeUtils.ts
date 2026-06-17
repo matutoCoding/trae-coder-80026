@@ -47,13 +47,14 @@ export const isOvernight = (startTime: string, endTime: string): boolean => {
   return eh < sh || (eh === sh && endTime <= startTime);
 };
 
+export const toMinutes = (t: string): number => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+
 const toMinutesNormalized = (startTime: string, endTime: string): { sMin: number; eMin: number } => {
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
-  let sMin = toMin(startTime);
-  let eMin = toMin(endTime);
+  let sMin = toMinutes(startTime);
+  let eMin = toMinutes(endTime);
   if (isOvernight(startTime, endTime)) {
     eMin += 24 * 60;
   }
@@ -103,6 +104,35 @@ export interface SlotWithDate {
 export const isSlotOverlap = (a: SlotWithDate, b: SlotWithDate): boolean => {
   if (a.date !== b.date) return false;
   return isTimeOverlap(a.startTime, a.endTime, b.startTime, b.endTime);
+};
+
+export interface ScheduleSegmentForConflict {
+  roomId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  bookingId?: string;
+}
+
+export const hasConflict = (
+  schedules: ScheduleSegmentForConflict[],
+  roomId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+): boolean => {
+  const querySegments: SlotWithDate[] = splitOvernightRange(date, startTime, endTime);
+  for (const seg of schedules) {
+    if (seg.roomId !== roomId) continue;
+    if (excludeBookingId && seg.bookingId === excludeBookingId) continue;
+    for (const q of querySegments) {
+      if (isSlotOverlap(q, { date: seg.date, startTime: seg.startTime, endTime: seg.endTime })) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 export const generateOrderNo = (): string => {

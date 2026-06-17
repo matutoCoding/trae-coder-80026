@@ -7,6 +7,7 @@ import GradientButton from '../../components/GradientButton';
 import { useBookingStore } from '../../store/useBookingStore';
 import { useRoomStore } from '../../store/useRoomStore';
 import { usePackageStore } from '../../store/usePackageStore';
+import { useQueueStore } from '../../store/useQueueStore';
 import type { BookingStatus } from '../../types/booking';
 import { BOOKING_STATUS_LABEL } from '../../types/booking';
 import styles from './index.module.scss';
@@ -20,6 +21,41 @@ const TABS: { key: TabType; label: string }[] = [
   { key: 'checked_in', label: '进行中' },
   { key: 'completed', label: '已完成' }
 ];
+
+const ORDER_BATCH_STYLES = `
+.batch-bar {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 32rpx;
+  background: linear-gradient(135deg, rgba(123,47,253,0.2) 0%, rgba(255,61,138,0.2) 100%);
+  border-top: 2rpx solid rgba(255,215,0,0.3);
+  border-bottom: 2rpx solid rgba(255,215,0,0.3);
+  gap: 16rpx;
+}
+.batch-info {
+  flex: 1;
+  color: #fff;
+  font-size: 26rpx;
+}
+.batch-count {
+  color: #FFD700;
+  font-weight: 700;
+}
+.batch-actions {
+  display: flex;
+  gap: 12rpx;
+}
+.batch-toggle-btn {
+  color: #8E8EB2;
+  font-size: 24rpx;
+  padding: 10rpx 20rpx;
+  margin-right: 16rpx;
+}
+.batch-toggle-btn-active {
+  color: #FFD700 !important;
+  font-weight: 600;
+}
+`;
 
 const ORDERS_MODIFY_STYLES = `
 .modify-modal {
@@ -121,6 +157,7 @@ const OrdersPage: React.FC = () => {
   const { bookings, extendBooking, cancelBooking, checkInBooking, checkOutBooking, modifyBooking } = useBookingStore();
   const { getRoomById } = useRoomStore();
   const { packages, getPackageById } = usePackageStore();
+  const { addToQueue } = useQueueStore();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [showExtendModal, setShowExtendModal] = useState(false);
   const [extendBookingId, setExtendBookingId] = useState<string | null>(null);
@@ -135,10 +172,92 @@ const OrdersPage: React.FC = () => {
     packageIds: [] as string[]
   });
 
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const filteredBookings = useMemo(() => {
     if (activeTab === 'all') return bookings;
     return bookings.filter(b => b.status === activeTab);
   }, [bookings, activeTab]);
+
+  const selectableBookings = useMemo(
+    () => filteredBookings.filter(b => b.status === 'pending' || b.status === 'confirmed'),
+    [filteredBookings]
+  );
+
+  const allSelectableSelected = useMemo(() => {
+    if (selectableBookings.length === 0) return false;
+    return selectableBookings.every(b => selectedIds.has(b.id));
+  }, [selectableBookings, selectedIds]);
+
+  const selectedBookings = useMemo(
+    () => bookings.filter(b => selectedIds.has(b.id)),
+    [bookings, selectedIds]
+  );
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelectableSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableBookings.map(b => b.id)));
+    }
+  };
+
+  const exitBatchMode = () => {
+    setBatchMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchCancel = () => {
+    if (selectedBookings.length === 0) return;
+    Taro.showModal({
+      title: '批量取消',
+      content: `确认取消已选中的 ${selectedBookings.length} 个订单？`,
+      success: (res) => {
+        if (res.confirm) {
+          let successCount = 0;
+          for (const b of selectedBookings) {
+            if (cancelBooking(b.id)) successCount++;
+          }
+          Taro.showToast({ title: `已取消 ${successCount} 个`, icon: 'success' });
+          exitBatchMode();
+        }
+      }
+    });
+  };
+
+  const handleBatchToQueue = () => {
+    if (selectedBookings.length === 0) return;
+    Taro.showModal({
+      title: '批量转前台队列',
+      content: `将已选中的 ${selectedBookings.length} 个待确认订单转入前台叫号？`,
+      success: (res) => {
+        if (res.confirm) {
+          let addedCount = 0;
+          for (const b of selectedBookings) {
+            const ok = addToQueue({
+              roomType: b.roomType,
+              peopleCount: b.peopleCount,
+              customerName: b.customerName,
+              customerPhone: b.customerPhone,
+              isVip: false
+            });
+            if (ok) addedCount++;
+          }
+          Taro.showToast({ title: `已加入 ${addedCount} 个`, icon: 'success' });
+          exitBatchMode();
+        }
+      }
+    });
+  };
 
   const extendPrice = useMemo(() => {
     if (!extendBookingId) return 0;
@@ -286,7 +405,39 @@ const OrdersPage: React.FC = () => {
             {tab.label}
           </View>
         ))}
+        <View
+          className={classnames('batch-toggle-btn', { 'batch-toggle-btn-active': batchMode })}
+          onClick={() => { if (batchMode) exitBatchMode(); else setBatchMode(true); }}
+          style={{
+            marginLeft: 'auto',
+            color: batchMode ? '#FFD700' : '#8E8EB2',
+            fontSize: 24,
+            padding: '8rpx 20rpx',
+            alignSelf: 'center',
+            fontWeight: batchMode ? 700 : 400
+          }}
+        >{batchMode ? '退出多选' : '批量操作'}</View>
       </ScrollView>
+
+      <style>{ORDER_BATCH_STYLES}</style>
+      {batchMode && (
+        <View className="batch-bar">
+          <View
+            onClick={toggleSelectAll}
+            style={{
+              width: 40, height: 40, borderRadius: '50%',
+              border: '3rpx solid ' + (allSelectableSelected ? '#FFD700' : 'rgba(255,255,255,0.3)'),
+              background: allSelectableSelected ? 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)' : 'rgba(255,255,255,0.04)',
+              color: allSelectableSelected ? '#1E1E3A' : 'transparent',
+              textAlign: 'center', lineHeight: '40rpx',
+              fontSize: 24, fontWeight: 800, flexShrink: 0
+            }}
+          >{allSelectableSelected ? '✓' : ''}</View>
+          <View className="batch-info">
+            {allSelectableSelected ? '已全选' : '全选'} · 可批量操作 <Text className="batch-count">{selectableBookings.length}</Text> 个待确认/已确认订单 · 已选 <Text className="batch-count">{selectedIds.size}</Text>
+          </View>
+        </View>
+      )}
 
       {filteredBookings.length === 0 ? (
         <View className={styles.emptyState}>
@@ -295,17 +446,37 @@ const OrdersPage: React.FC = () => {
           <GradientButton onClick={goToBooking}>去预订</GradientButton>
         </View>
       ) : (
-        filteredBookings.map(booking => (
-          <OrderCard
-            key={booking.id}
-            booking={booking}
-            onExtend={() => handleExtend(booking.id)}
-            onCancel={() => handleCancel(booking.id)}
-            onCheckIn={() => handleCheckIn(booking.id)}
-            onCheckOut={() => handleCheckOut(booking.id)}
-            onModify={() => handleModify(booking.id)}
-          />
-        ))
+        filteredBookings.map(booking => {
+          const selectable = booking.status === 'pending' || booking.status === 'confirmed';
+          return (
+            <OrderCard
+              key={booking.id}
+              booking={booking}
+              onExtend={() => handleExtend(booking.id)}
+              onCancel={() => handleCancel(booking.id)}
+              onCheckIn={() => handleCheckIn(booking.id)}
+              onCheckOut={() => handleCheckOut(booking.id)}
+              onModify={() => handleModify(booking.id)}
+              batchMode={batchMode}
+              selected={selectedIds.has(booking.id)}
+              selectable={selectable}
+              onToggleSelect={() => toggleSelectOne(booking.id)}
+            />
+          );
+        })
+      )}
+
+      {batchMode && selectedIds.size > 0 && (
+        <View style={{
+          position: 'sticky', bottom: 0, zIndex: 100,
+          background: 'rgba(30,30,58,0.97)',
+          borderTop: '2rpx solid rgba(255,215,0,0.4)',
+          padding: '20rpx 32rpx', paddingBottom: 40,
+          display: 'flex', gap: 16
+        }}>
+          <GradientButton ghost block onClick={handleBatchCancel}>批量取消（{selectedIds.size}）</GradientButton>
+          <GradientButton block onClick={handleBatchToQueue}>批量转队列（{selectedIds.size}）</GradientButton>
+        </View>
       )}
 
       {showExtendModal && (

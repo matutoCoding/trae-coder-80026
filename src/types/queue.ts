@@ -29,6 +29,7 @@ export interface QueueItem {
   isVip?: boolean;
   priority?: number;
   priorityReason?: string;
+  missedCount?: number;
   calledAt?: string;
   servedAt?: string;
 }

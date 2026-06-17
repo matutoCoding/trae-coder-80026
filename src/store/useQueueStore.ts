@@ -26,6 +26,8 @@ interface QueueState {
   updateBookingId: (queueItemId: string, bookingId: string) => void;
   markServed: (queueItemId: string, bookingId: string) => void;
   markMissed: (queueItemId: string) => void;
+  recallMissed: (queueItemId: string) => boolean;
+  requeueToTail: (queueItemId: string) => boolean;
   cancelQueue: (queueItemId: string) => void;
   transferToCounter: (queueItemId: string, targetCounterId: string) => boolean;
   moveToFront: (queueItemId: string, options?: { targetCounterId?: string; reason?: string }) => boolean;
@@ -195,7 +197,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
     set((state) => {
       const newQueueItems = state.queueItems.map(q =>
-        q.id === queueItemId ? { ...q, status: 'missed' as QueueStatus } : q
+        q.id === queueItemId ? { ...q, status: 'missed' as QueueStatus, missedCount: (q.missedCount || 0) + 1 } : q
       );
       const newCounters = state.counters.map(c =>
         c.id === item.counterId
@@ -213,6 +215,58 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         counters: newCounters
       };
     });
+  },
+
+  recallMissed: (queueItemId) => {
+    console.log('[QueueStore] 过号重叫', queueItemId);
+    const item = get().queueItems.find(q => q.id === queueItemId);
+    if (!item || item.status !== 'missed') {
+      console.error('[QueueStore] 仅已过号状态可重叫', item?.status);
+      return false;
+    }
+    if (!item.counterId) return false;
+    const target = get().counters.find(c => c.id === item.counterId);
+    if (!target || target.status === 'offline') return false;
+
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
+        q.id === queueItemId ? { ...q, status: 'calling' as QueueStatus, calledAt: new Date().toISOString() } : q
+      );
+      const newCounters = state.counters.map(c =>
+        c.id === item.counterId
+          ? { ...c, currentServingCount: c.currentServingCount + 1, lastActivityTime: new Date().toISOString() }
+          : c
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return { queueItems: newQueueItems, counters: newCounters };
+    });
+    return true;
+  },
+
+  requeueToTail: (queueItemId) => {
+    console.log('[QueueStore] 放回原窗口队尾', queueItemId);
+    const item = get().queueItems.find(q => q.id === queueItemId);
+    if (!item || item.status !== 'missed') {
+      console.error('[QueueStore] 仅已过号状态可放回队尾', item?.status);
+      return false;
+    }
+    if (!item.counterId) return false;
+    const target = get().counters.find(c => c.id === item.counterId);
+    if (!target || target.status === 'offline') return false;
+
+    set((state) => {
+      const newQueueItems = state.queueItems.map(q =>
+        q.id === queueItemId ? { ...q, status: 'waiting' as QueueStatus, priority: 0, createdAt: new Date().toISOString() } : q
+      );
+      const newCounters = state.counters.map(c =>
+        c.id === item.counterId ? { ...c, waitingQueueCount: c.waitingQueueCount + 1 } : c
+      );
+      saveToStorage(STORAGE_KEY_QUEUE_ITEMS, newQueueItems);
+      saveToStorage(STORAGE_KEY_COUNTERS, newCounters);
+      return { queueItems: newQueueItems, counters: newCounters };
+    });
+    return true;
   },
 
   cancelQueue: (queueItemId) => {

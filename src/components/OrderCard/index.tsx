@@ -15,6 +15,10 @@ interface OrderCardProps {
   onCheckIn?: () => void;
   onCheckOut?: () => void;
   onModify?: () => void;
+  batchMode?: boolean;
+  selected?: boolean;
+  selectable?: boolean;
+  onToggleSelect?: () => void;
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({
@@ -23,7 +27,11 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onCancel,
   onCheckIn,
   onCheckOut,
-  onModify
+  onModify,
+  batchMode,
+  selected,
+  selectable,
+  onToggleSelect
 }) => {
   const statusClass = {
     pending: styles.statusPending,
@@ -48,15 +56,49 @@ const OrderCard: React.FC<OrderCardProps> = ({
   const canModify = booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'extended';
 
   return (
-    <View className={styles.card} onClick={handleClick}>
-      <View className={styles.header}>
+    <View
+      className={classnames(styles.card, {
+        [styles.cardSelected]: selected,
+        [styles.cardUnselectable]: batchMode && !selectable
+      })}
+      onClick={handleClick}
+    >
+      {batchMode && (
+        <View
+          className={classnames('batch-checkbox', {
+            'batch-checkbox-checked': selected,
+            'batch-checkbox-disabled': !selectable
+          })}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (selectable) onToggleSelect && onToggleSelect();
+          }}
+          style={{
+            position: 'absolute',
+            top: 20,
+            left: 20,
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            border: '3rpx solid ' + (selectable ? (selected ? '#FFD700' : 'rgba(255,255,255,0.3)') : 'rgba(120,120,140,0.3)'),
+            background: selected ? 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)' : 'rgba(255,255,255,0.04)',
+            color: selected ? '#1E1E3A' : 'transparent',
+            textAlign: 'center',
+            lineHeight: '40rpx',
+            fontSize: 24,
+            fontWeight: 800,
+            zIndex: 10
+          }}
+        >{selected ? '✓' : ''}</View>
+      )}
+      <View className={styles.header} style={{ paddingLeft: batchMode ? 70 : undefined }}>
         <View className={styles.orderNo}>订单号: {booking.orderNo}</View>
         <View className={classnames(styles.statusBadge, statusClass)}>
           {BOOKING_STATUS_LABEL[booking.status]}
         </View>
       </View>
 
-      <View className={styles.info}>
+      <View className={styles.info} style={{ paddingLeft: batchMode ? 70 : undefined }}>
         <View className={styles.roomName}>
           {booking.roomName} · {booking.roomNo}
         </View>
@@ -68,7 +110,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
         </View>
       </View>
 
-      <View className={styles.footer}>
+      <View className={styles.footer} style={{ paddingLeft: batchMode ? 70 : undefined }}>
         <View className={styles.price}>
           <Text className={styles.priceLabel}>合计</Text>
           ¥{booking.totalAmount}

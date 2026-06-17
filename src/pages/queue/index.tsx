@@ -13,8 +13,6 @@ import type { Counter } from '../../types/queue';
 import { formatDateTime } from '../../utils/timeUtils';
 import styles from './index.module.scss';
 
-type TabType = 'all' | 'waiting' | 'calling' | 'served';
-
 const QUEUE_UI_STYLES = `
 .transfer-modal, .priority-modal {
   background: #1E1E3A;
@@ -97,10 +95,23 @@ const QUEUE_UI_STYLES = `
   background: linear-gradient(135deg, rgba(123,47,253,0.4) 0%, rgba(255,61,138,0.4) 100%);
   border-color: #FFD700;
 }
+.missed-count-tag {
+  display: inline-block;
+  background: rgba(130,130,160,0.2);
+  color: #B0B0D0;
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+  border: 2rpx dashed rgba(130,130,160,0.5);
+  vertical-align: middle;
+}
 `;
 
+type TabType = 'all' | 'waiting' | 'calling' | 'served' | 'missed';
+
 const QueuePage: React.FC = () => {
-  const { counters, queueItems, callNext, markServed, markMissed, triggerRebalance, getCountersLoad, transferToCounter, moveToFront } = useQueueStore();
+  const { counters, queueItems, callNext, markServed, markMissed, recallMissed, requeueToTail, triggerRebalance, getCountersLoad, transferToCounter, moveToFront } = useQueueStore();
   const { checkInBooking } = useBookingStore();
   const [activeTab, setActiveTab] = useState<TabType>('waiting');
   const [showTransfer, setShowTransfer] = useState<string | null>(null);
@@ -112,7 +123,8 @@ const QueuePage: React.FC = () => {
     return {
       waiting: queueItems.filter(q => q.status === 'waiting').length,
       calling: queueItems.filter(q => q.status === 'calling').length,
-      served: queueItems.filter(q => q.status === 'served').length
+      served: queueItems.filter(q => q.status === 'served').length,
+      missed: queueItems.filter(q => q.status === 'missed').length
     };
   }, [queueItems]);
 
@@ -177,6 +189,32 @@ const QueuePage: React.FC = () => {
         if (res.confirm) {
           markMissed(queueItemId);
           Taro.showToast({ title: '已标记过号', icon: 'none' });
+        }
+      }
+    });
+  };
+
+  const handleRecallMissed = (queueItemId: string) => {
+    const ok = recallMissed(queueItemId);
+    if (ok) {
+      Taro.showToast({ title: '已重新叫号', icon: 'success' });
+    } else {
+      Taro.showToast({ title: '重叫失败', icon: 'none' });
+    }
+  };
+
+  const handleRequeueToTail = (queueItemId: string) => {
+    Taro.showModal({
+      title: '放回队尾',
+      content: '确认将该客人放回原窗口队尾重新排队？',
+      success: (res) => {
+        if (res.confirm) {
+          const ok = requeueToTail(queueItemId);
+          if (ok) {
+            Taro.showToast({ title: '已放回队尾', icon: 'success' });
+          } else {
+            Taro.showToast({ title: '操作失败', icon: 'none' });
+          }
         }
       }
     });
@@ -334,6 +372,7 @@ const QueuePage: React.FC = () => {
   const tabs: { key: TabType; label: string }[] = [
     { key: 'waiting', label: '等待中' },
     { key: 'calling', label: '叫号中' },
+    { key: 'missed', label: '已过号' },
     { key: 'served', label: '已服务' },
     { key: 'all', label: '全部' }
   ];
@@ -361,6 +400,12 @@ const QueuePage: React.FC = () => {
             {overview.served}
           </View>
           <View className={styles.overviewCardLabel}>已服务</View>
+        </View>
+        <View className={styles.overviewCard}>
+          <View className={classnames(styles.overviewCardValue, { [styles.overviewValueCalling]: overview.missed > 0 })} style={{ color: overview.missed > 0 ? '#FF9500' : undefined }}>
+            {overview.missed}
+          </View>
+          <View className={styles.overviewCardLabel}>已过号</View>
         </View>
       </View>
 
@@ -419,6 +464,7 @@ const QueuePage: React.FC = () => {
                     {item.isVip && <Text className="vip-tag">VIP</Text>}
                     {(item.priority || 0) > 100 && !item.isVip && <Text className="vip-tag">优</Text>}
                     {item.priorityReason && <Text className="reason-tag">{item.priorityReason}</Text>}
+                    {(item.missedCount || 0) > 0 && <Text className="missed-count-tag">过号{item.missedCount}次</Text>}
                   </View>
                   <View className={styles.queueDetails}>
                     <View className={styles.queueDetailsName}>
@@ -453,6 +499,17 @@ const QueuePage: React.FC = () => {
                       </GradientButton>
                       <GradientButton size="small" ghost onClick={() => handleMissed(item.id)}>
                         过号
+                      </GradientButton>
+                    </>
+                  )}
+
+                  {item.status === 'missed' && (
+                    <>
+                      <GradientButton size="small" onClick={() => handleRecallMissed(item.id)}>
+                        重叫
+                      </GradientButton>
+                      <GradientButton size="small" ghost onClick={() => handleRequeueToTail(item.id)}>
+                        放回队尾
                       </GradientButton>
                     </>
                   )}
